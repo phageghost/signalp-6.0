@@ -67,7 +67,7 @@ def torch_isin(
     element is True when value at this position is in test_elements"""
 
     if type(test_elements) == list:
-        test_elements = torch.tensor(test_elements).to(device)
+        test_elements = torch.tensor(test_elements, device=element.device, dtype=element.dtype)
 
     bool_tensor = (element.unsqueeze(-1) == test_elements).any(-1)
 

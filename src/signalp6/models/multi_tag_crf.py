@@ -121,7 +121,7 @@ class CRF(nn.Module):
             torch.empty(self.transitions.shape).fill_(inf).to(self.transitions.device)
         )
         self.transitions.data = torch.where(
-            self._constraint_mask.byte(), self.transitions, inf_matrix
+            self._constraint_mask.bool(), self.transitions, inf_matrix
         )
 
         if self.include_start_end_transitions:
@@ -131,10 +131,10 @@ class CRF(nn.Module):
                 .to(self.start_transitions.device)
             )
             self.start_transitions.data = torch.where(
-                self._constraint_start_mask.byte(), self.start_transitions, inf_vector
+                self._constraint_start_mask.bool(), self.start_transitions, inf_vector
             )
             self.end_transitions.data = torch.where(
-                self._constraint_end_mask.byte(), self.end_transitions, inf_vector
+                self._constraint_end_mask.bool(), self.end_transitions, inf_vector
             )
 
     def __repr__(self) -> str:
@@ -180,7 +180,7 @@ class CRF(nn.Module):
         if reduction not in ("none", "sum", "mean", "token_mean"):
             raise ValueError(f"invalid reduction: {reduction}")
         if mask is None:
-            mask = torch.ones_like(tags, dtype=torch.uint8)
+            mask = torch.ones_like(tags, dtype=torch.bool)
 
         if self.batch_first:
             emissions = emissions.transpose(0, 1)
@@ -243,7 +243,7 @@ class CRF(nn.Module):
         """
         self._validate(emissions, mask=mask)
         if mask is None:
-            mask = emissions.new_ones(emissions.shape[:2], dtype=torch.uint8)
+            mask = emissions.new_ones(emissions.shape[:2], dtype=torch.bool)
 
         if self.batch_first:
             emissions = emissions.transpose(0, 1)
@@ -374,7 +374,7 @@ class CRF(nn.Module):
             .to(emissions.device)
         )
         # inf_matrix = torch.empty(emissions.shape).fill_(torch.as_tensor(-30.0)).to(emissions.device)
-        filtered_inputs = torch.where(tag_bitmap.byte(), emissions, inf_matrix)
+        filtered_inputs = torch.where(tag_bitmap.bool(), emissions, inf_matrix)
 
         seq_score = self._compute_log_normalizer(filtered_inputs, mask)
         # torch.index_fill(emissions, )

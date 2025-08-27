@@ -13,11 +13,18 @@ initialized already. This is necessary when spawning multiple train loops from t
 wandb reinit is still bugged.
 """
 # Felix August 2020
+import os
+# Fix OpenMP conflict on macOS
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
 import argparse
 import time
 import math
 import numpy as np
 import torch
+# Set default tensor type to float32 for Metal compatibility
+torch.set_default_dtype(torch.float32)
+
 import logging
 import subprocess
 import torch.nn as nn
@@ -119,7 +126,13 @@ def setup_logger():
     return logger
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Use Metal Performance Shaders (MPS) on Apple Silicon, CUDA on NVIDIA, or CPU as fallback
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
 
 
 def tagged_seq_to_cs_multiclass(tagged_seqs: np.ndarray, sp_tokens=[0, 4, 5]):
@@ -332,12 +345,13 @@ def train(
                 kingdom_ids,
             ) = batch
 
-        data = data.to(device)
-        targets = targets.to(device)
-        input_mask = input_mask.to(device)
-        global_targets = global_targets.to(device)
-        sample_weights = sample_weights.to(device) if args.use_sample_weights else None
-        kingdom_ids = kingdom_ids.to(device)
+        # input_ids must stay as long integers for embedding layers
+        data = data.to(device, dtype=torch.long)
+        targets = targets.to(device, dtype=torch.long)
+        input_mask = input_mask.to(device, dtype=torch.bool)
+        global_targets = global_targets.to(device, dtype=torch.long)
+        sample_weights = sample_weights.to(device, dtype=torch.float32) if args.use_sample_weights else None
+        kingdom_ids = kingdom_ids.to(device, dtype=torch.long)
 
         optimizer.zero_grad()
 
@@ -367,8 +381,14 @@ def train(
         # remaining SEP tokens (when sequence was padded) are ignored in aggregation.
         if args.sp_region_labels and args.region_regularization_alpha > 0:
 
+            # Ensure all tensors are on the same device for regularization
+            pos_probs_device = pos_probs.to(device)
+            data_device = data[:, 2:-1].to(device)
+            global_targets_device = global_targets.to(device)
+            input_mask_device = input_mask[:, 2:-1].to(device)
+            
             nh, hc = compute_cosine_region_regularization(
-                pos_probs, data[:, 2:-1], global_targets, input_mask[:, 2:-1]
+                pos_probs_device, data_device, global_targets_device, input_mask_device
             )
             loss = loss + nh.mean() * args.region_regularization_alpha
             loss = loss + hc.mean() * args.region_regularization_alpha
@@ -465,12 +485,13 @@ def validate(model: torch.nn.Module, valid_data: DataLoader, args) -> float:
                 sample_weights,
                 kingdom_ids,
             ) = batch
-        data = data.to(device)
-        targets = targets.to(device)
-        input_mask = input_mask.to(device)
-        global_targets = global_targets.to(device)
-        sample_weights = sample_weights.to(device) if args.use_sample_weights else None
-        kingdom_ids = kingdom_ids.to(device)
+        # input_ids must stay as long integers for embedding layers
+        data = data.to(device, dtype=torch.long)
+        targets = targets.to(device, dtype=torch.long)
+        input_mask = input_mask.to(device, dtype=torch.bool)
+        global_targets = global_targets.to(device, dtype=torch.long)
+        sample_weights = sample_weights.to(device, dtype=torch.float32) if args.use_sample_weights else None
+        kingdom_ids = kingdom_ids.to(device, dtype=torch.long)
 
         with torch.no_grad():
             loss, global_probs, pos_probs, pos_preds = model(
@@ -569,7 +590,8 @@ def main_training_loop(args: argparse.ArgumentParser):
     logger.info(f"Loading pretrained model in {args.resume}")
     config = MODEL_DICT[args.model_architecture][0].from_pretrained(args.resume)
 
-    if config.xla_device:
+    # Handle xla_device attribute that may not exist in newer transformers versions
+    if hasattr(config, 'xla_device') and config.xla_device:
         setattr(config, "xla_device", False)
 
     setattr(config, "num_labels", args.num_seq_labels)

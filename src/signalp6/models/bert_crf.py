@@ -271,7 +271,7 @@ class BertSequenceTaggingCRF(BertPreTrainedModel):
                 emissions=prediction_logits,
                 tags=targets,
                 tag_bitmap=None,
-                mask=input_mask.byte(),
+                mask=input_mask.bool(),
                 reduction="mean",
             )
             neg_log_likelihood = -log_likelihood * self.crf_scaling_factor
@@ -281,7 +281,7 @@ class BertSequenceTaggingCRF(BertPreTrainedModel):
                 emissions=prediction_logits,
                 tags=None,
                 tag_bitmap=targets_bitmap,
-                mask=input_mask.byte(),
+                mask=input_mask.bool(),
                 reduction="mean",
             )
             neg_log_likelihood = -log_likelihood * self.crf_scaling_factor
@@ -289,7 +289,7 @@ class BertSequenceTaggingCRF(BertPreTrainedModel):
             neg_log_likelihood = 0
 
         probs = self.crf.compute_marginal_probabilities(
-            emissions=prediction_logits, mask=input_mask.byte()
+            emissions=prediction_logits, mask=input_mask.bool()
         )
 
         if self.sp_region_tagging:
@@ -309,7 +309,7 @@ class BertSequenceTaggingCRF(BertPreTrainedModel):
             init_states = None
         viterbi_paths = self.crf.decode(
             emissions=prediction_logits,
-            mask=input_mask.byte(),
+            mask=input_mask.bool(),
             init_state_vector=init_states,
         )
 

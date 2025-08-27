@@ -114,7 +114,7 @@ def run_averaged_crf(
 
     # Get viterbi decodings
     with torch.no_grad():
-        viterbi_paths = model.crf.decode(emissions=emissions, mask=input_mask.byte())
+        viterbi_paths = model.crf.decode(emissions=emissions, mask=input_mask.bool())
 
     return viterbi_paths
 
