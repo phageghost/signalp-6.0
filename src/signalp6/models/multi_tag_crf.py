@@ -58,32 +58,28 @@ class CRF(nn.Module):
             self.end_transitions = torch.nn.Parameter(torch.empty(num_tags))
 
             if allowed_transitions is None:  # All transitions are valid.
-                constraint_start_mask = torch.empty(num_tags).fill_(1.0)
-                constraint_end_mask = torch.empty(num_tags).fill_(1.0)
+                constraint_start_mask = torch.ones(num_tags, dtype=torch.float32)
+                constraint_end_mask = torch.ones(num_tags, dtype=torch.float32)
             else:
-                constraint_start_mask = torch.empty(num_tags).fill_(0.0)
-                constraint_end_mask = torch.empty(num_tags).fill_(0.0)
+                constraint_start_mask = torch.zeros(num_tags, dtype=torch.float32)
+                constraint_end_mask = torch.zeros(num_tags, dtype=torch.float32)
                 constraint_start_mask[allowed_start] = 1.0
                 constraint_end_mask[allowed_end] = 1.0
-            self._constraint_start_mask = torch.nn.Parameter(
-                constraint_start_mask, requires_grad=False
-            )
-            self._constraint_end_mask = torch.nn.Parameter(
-                constraint_end_mask, requires_grad=False
-            )
+            self._constraint_start_mask = constraint_start_mask
+            self._constraint_end_mask = constraint_end_mask
 
         # todo: implement constraints. only used in viterby decode.
         # _constraint_mask indicates valid transitions (based on supplied constraints).
         # Include special start of sequence (num_tags + 1) and end of sequence tags (num_tags + 2)
-        constraint_mask = None
+        # Create constraint masks as regular tensors since they don't need to be Parameters
         if allowed_transitions is None:  # All transitions are valid.
-            constraint_mask = torch.empty(num_tags, num_tags).fill_(1.0)
+            constraint_mask = torch.ones(num_tags, num_tags, dtype=torch.float32)
         else:
-            constraint_mask = torch.empty(num_tags, num_tags).fill_(0.0)
+            constraint_mask = torch.zeros(num_tags, num_tags, dtype=torch.float32)
             for i, j in allowed_transitions:
                 constraint_mask[i, j] = 1.0
         #     todo: could maybe be done more pretty than a loop?
-        self._constraint_mask = torch.nn.Parameter(constraint_mask, requires_grad=False)
+        self._constraint_mask = constraint_mask
 
         self.reset_parameters()
 
@@ -113,6 +109,18 @@ class CRF(nn.Module):
 
         if self.transition_constraint:
             self.do_transition_constraint()
+            
+    def to(self, device):
+        """Override to ensure constraint masks are moved to the correct device."""
+        super().to(device)
+        # Move constraint masks to the same device
+        if hasattr(self, '_constraint_mask'):
+            self._constraint_mask = self._constraint_mask.to(device)
+        if hasattr(self, '_constraint_start_mask'):
+            self._constraint_start_mask = self._constraint_start_mask.to(device)
+        if hasattr(self, '_constraint_end_mask'):
+            self._constraint_end_mask = self._constraint_end_mask.to(device)
+        return self
 
     def do_transition_constraint(self):
         # inf = torch.finfo(self.start_transitions.dtype).min
@@ -374,7 +382,8 @@ class CRF(nn.Module):
             .to(emissions.device)
         )
         # inf_matrix = torch.empty(emissions.shape).fill_(torch.as_tensor(-30.0)).to(emissions.device)
-        filtered_inputs = torch.where(tag_bitmap.bool(), emissions, inf_matrix)
+        # Use clone() to avoid in-place operation issues during backward pass
+        filtered_inputs = torch.where(tag_bitmap.bool(), emissions, inf_matrix).clone()
 
         seq_score = self._compute_log_normalizer(filtered_inputs, mask)
         # torch.index_fill(emissions, )

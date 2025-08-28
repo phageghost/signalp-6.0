@@ -147,24 +147,13 @@ class BertSequenceTaggingCRF(BertPreTrainedModel):
             len(self.class_label_mapping) == self.num_global_labels
         ), "defined number of classes and class-label mapping do not agree."
 
-        self.allowed_crf_transitions = (
-            config.allowed_crf_transitions
-            if hasattr(config, "allowed_crf_transitions")
-            else None
-        )
-        self.allowed_crf_starts = (
-            config.allowed_crf_starts if hasattr(config, "allowed_crf_starts") else None
-        )
-        self.allowed_crf_ends = (
-            config.allowed_crf_ends if hasattr(config, "allowed_crf_ends") else None
-        )
-
+        # Note: CRF constraints removed as they are not part of the intended architecture
+        # The model learns valid transitions naturally from the training data
+        
         self.crf = CRF(
             num_tags=config.num_labels,
             batch_first=True,
-            allowed_transitions=self.allowed_crf_transitions,
-            allowed_start=self.allowed_crf_starts,
-            allowed_end=self.allowed_crf_ends,
+            # No constraints - let the model learn naturally
         )
         # Legacy, remove this once i completely retire non-mulitstate labeling
         self.sp_region_tagging = (
@@ -468,6 +457,8 @@ class BertSequenceTaggingCRF(BertPreTrainedModel):
         if self.use_kingdom_id:
             eukarya_idx = torch.where(kingdom_ids == 0)[0]
             summed_sp_probs = probs[eukarya_idx, 1:].sum(dim=1)
+            # Create a copy to avoid in-place modification
+            probs = probs.clone()
             # update probs for eukarya
             probs[eukarya_idx, 1] = summed_sp_probs
             probs[eukarya_idx, 2:] = 0

@@ -1,0 +1,52 @@
+{
+  "os": "macOS-15.6.1-arm64-arm-64bit-Mach-O",
+  "python": "CPython 3.13.5",
+  "startedAt": "2025-08-28T22:24:02.273977Z",
+  "args": [
+    "--data",
+    "data/train_set.fasta",
+    "--test_partition",
+    "0",
+    "--validation_partition",
+    "1",
+    "--batch_size",
+    "20",
+    "--lr",
+    "0.0001",
+    "--sp_region_labels",
+    "--output_dir",
+    "full_scale_test_3"
+  ],
+  "program": "/Users/dylanskola/workspace/signalp-6.0/scripts/train_model.py",
+  "codePath": "scripts/train_model.py",
+  "codePathLocal": "scripts/train_model.py",
+  "git": {
+    "remote": "https://github.com/phageghost/signalp-6.0.git",
+    "commit": "9be512b6eaeab505ef38a88b5be020d742dc9e97"
+  },
+  "email": "github@phageghost.net",
+  "root": "full_scale_test_3/BERT-CRF_test_0_valid_1_25-08-28-22-24-01",
+  "host": "Dylans-MacBook-Pro.local",
+  "executable": "/Users/dylanskola/micromamba/envs/signalp/bin/python",
+  "cpu_count": 10,
+  "cpu_count_logical": 10,
+  "disk": {
+    "/": {
+      "total": "494384795648",
+      "used": "469564567552"
+    }
+  },
+  "memory": {
+    "total": "17179869184"
+  },
+  "apple": {
+    "name": "Apple M2 Pro",
+    "ecpuCores": 4,
+    "pcpuCores": 6,
+    "gpuCores": 16,
+    "memoryGb": 16,
+    "swapTotalBytes": "6442450944",
+    "ramTotalBytes": "17179869184"
+  },
+  "writerId": "nwg2c12h8e03da71xl4r0i5ufmtj8zrc"
+}

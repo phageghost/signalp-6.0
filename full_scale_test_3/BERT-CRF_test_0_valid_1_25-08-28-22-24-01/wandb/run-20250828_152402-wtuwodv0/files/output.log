@@ -1,0 +1,84 @@
+25/08/28 15:24:03 - INFO - __main__ -   torch seed: 4820597461317667311
+25/08/28 15:24:03 - INFO - __main__ -   Saving to full_scale_test_3/BERT-CRF_test_0_valid_1_25-08-28-22-24-01
+25/08/28 15:24:03 - INFO - __main__ -   Loading pretrained model in Rostlab/prot_bert
+25/08/28 15:24:03 - INFO - __main__ -   Creating model from scratch to avoid CRF initialization issues...
+25/08/28 15:24:10 - INFO - __main__ -   Loading BERT weights from Rostlab/prot_bert...
+25/08/28 15:24:10 - WARNING - __main__ -   Failed to load BERT weights: defined number of classes and class-label mapping do not agree.
+25/08/28 15:24:10 - INFO - __main__ -   Continuing with random initialization...
+25/08/28 15:24:10 - INFO - __main__ -   Training on [2], validating on 1
+25/08/28 15:24:10 - INFO - __main__ -   Using labels for SP region prediction.
+25/08/28 15:24:10 - INFO - __main__ -   7002 training sequences, 7392 validation sequences.
+25/08/28 15:24:10 - INFO - __main__ -   Data loaded. One epoch = 351 batches.
+25/08/28 15:24:10 - INFO - __main__ -   Logging experiment as BERT-CRF_0_1_25-08-28-22-24-01 to wandb/tensorboard
+25/08/28 15:24:10 - INFO - __main__ -   Saving checkpoints at full_scale_test_3/BERT-CRF_test_0_valid_1_25-08-28-22-24-01
+25/08/28 15:24:11 - INFO - __main__ -   Model set up!
+25/08/28 15:24:11 - INFO - __main__ -   Model has 419970504 trainable parameters
+25/08/28 15:24:11 - INFO - __main__ -   Running model on mps, not using nvidia apex
+25/08/28 15:24:11 - INFO - __main__ -   Starting epoch 1
+25/08/28 15:24:11 - INFO - __main__ -   Processing batch 0 ...
+25/08/28 15:24:20 - INFO - __main__ -   Processing batch 1 ...
+25/08/28 15:25:25 - INFO - __main__ -   Processing batch 2 ...
+25/08/28 15:26:12 - INFO - __main__ -   Processing batch 3 ...
+25/08/28 15:26:41 - INFO - __main__ -   Processing batch 4 ...
+Traceback (most recent call last):
+  File "/Users/dylanskola/workspace/signalp-6.0/scripts/train_model.py", line 1600, in <module>
+    main_training_loop(args)
+    ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/dylanskola/workspace/signalp-6.0/scripts/train_model.py", line 1257, in main_training_loop
+    epoch_loss, global_step = train(
+                              ~~~~~^
+        model, train_loader, optimizer, args, global_step, logger
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dylanskola/workspace/signalp-6.0/scripts/train_model.py", line 469, in train
+    loss, global_probs, pos_probs, pos_preds = model(
+                                               ~~~~~^
+        data,
+        ^^^^^
+    ...<5 lines>...
+        kingdom_ids=kingdom_ids if args.kingdom_embed_size > 0 else None,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1784, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/Users/dylanskola/workspace/signalp-6.0/src/signalp6/models/bert_crf.py", line 210, in forward
+    outputs = self.bert(
+        input_ids, attention_mask=input_mask, inputs_embeds=inputs_embeds
+    )  # Returns tuple. pos 0 is sequence output, rest optional.
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1784, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/site-packages/transformers/models/bert/modeling_bert.py", line 982, in forward
+    if self.config.is_decoder and encoder_hidden_states is not None:
+       ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/site-packages/transformers/configuration_utils.py", line 208, in __getattribute__
+    def __getattribute__(self, key):
+
+KeyboardInterrupt
+Exception ignored in atexit callback <function _start_and_connect_service.<locals>.teardown_atexit at 0x309e87880>:
+Traceback (most recent call last):
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/site-packages/wandb/sdk/lib/service/service_connection.py", line 54, in teardown_atexit
+    conn.teardown(hooks.exit_code)
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/site-packages/wandb/sdk/lib/service/service_connection.py", line 182, in teardown
+    self._router.join()
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/site-packages/wandb/sdk/interface/router.py", line 75, in join
+    self._thread.join()
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/threading.py", line 1094, in join
+    self._handle.join(timeout)
+KeyboardInterrupt:
+Exception ignored in atexit callback <bound method finalize._exitfunc of <class 'weakref.finalize'>>:
+Traceback (most recent call last):
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/weakref.py", line 666, in _exitfunc
+    f()
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/weakref.py", line 590, in __call__
+    return info.func(*info.args, **(info.kwargs or {}))
+  File "/Users/dylanskola/micromamba/envs/signalp/lib/python3.13/site-packages/torch/library.py", line 482, in _del_library
+    m.reset()
+KeyboardInterrupt:

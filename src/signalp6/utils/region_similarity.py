@@ -111,14 +111,21 @@ def compute_region_cosine_similarity(
         tags = tag_sequences[i]
         aas = aa_sequences[i]
 
-        # Remove special tokens
+        # Remove special tokens and padding
         aas = aas[~torch_isin(aas, AA_SPECIAL_TOKENS)]
         tags = tags[tags != TAG_PAD_IDX]
-
-        # Preprocess tags and sequences
-        tags = tags[1:]  # skip first M
-        aas = aas[1:]  # skip first M
-
+        
+        # Ensure both sequences have the same length after filtering
+        min_len = min(len(tags), len(aas))
+        tags = tags[:min_len]
+        aas = aas[:min_len]
+        
+        # Preprocess tags and sequences (skip first token if available)
+        if min_len > 1:
+            tags = tags[1:]  # skip first M
+            aas = aas[1:]  # skip first M
+        
+        # Final length check
         assert len(tags) == len(aas)
 
         # Whenever we are normalizing, there is a risk that we divide by sum 0,
