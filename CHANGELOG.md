@@ -4,7 +4,38 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 
 ## 🚨 Critical Bug Fixes
 
-### 1. CRF Constraint System Removal
+### 1. Adaptive Tensor Slicing for Regularization
+**Issue**: When using `--region_regularization_alpha > 0`, the cosine similarity regularization function would crash with `AssertionError: First 2 dimensions of input ids and probs need to agree`.
+
+**Root Cause**: The hardcoded tensor slicing `[:, 1:-1, :]` and `[:, 1:-1]` didn't handle cases where input data and model output had different sequence lengths. For example, input data could have 72 tokens while model output had 70 positions.
+
+**Solution**: Implemented intelligent adaptive slicing that:
+- Detects dimension mismatches between `pos_probs` and `data` tensors
+- Automatically removes excess tokens from both ends of the data tensor
+- Ensures `pos_probs_device` and `data_device` always have matching sequence dimensions
+- Falls back to standard slicing when dimensions are compatible
+
+**Implementation**: 
+```python
+# Adaptive slicing based on actual dimensions
+if data.shape[1] > seq_len:
+    tokens_to_remove = data.shape[1] - seq_len
+    start_idx = tokens_to_remove // 2
+    end_idx = data.shape[1] - (tokens_to_remove - start_idx)
+    pos_probs_device = pos_probs.to(device)
+    data_device = data[:, start_idx:end_idx].to(device)
+else:
+    # Standard case: remove 1 token from each end
+    pos_probs_device = pos_probs[:, 1:-1, :].to(device)
+    data_device = data[:, 1:-1].to(device)
+```
+
+**Impact**: Training now works reliably with any combination of sequence lengths and regularization settings, preventing crashes when using region regularization.
+
+**Files Modified**:
+- `scripts/train_model.py` - Added adaptive slicing logic in regularization section
+
+### 2. CRF Constraint System Removal
 **Issue**: The original repository included an experimental CRF constraint system that was not part of the intended SignalP 6.0 architecture described in the paper. This system caused:
 - Infinite loss values during training
 - Inability to train on sequences that violated hardcoded transition rules
@@ -21,7 +52,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 - `src/signalp6/models/bert_crf.py` - Removed constraint parameters from CRF initialization
 - `README.md` - Removed constraint-related examples
 
-### 2. CRF Parameter Initialization Fix
+### 3. CRF Parameter Initialization Fix
 **Issue**: CRF layer parameters (`crf.transitions`) contained NaN values after model loading, causing training failures.
 
 **Solution**: Refactored model loading to avoid CRF initialization issues:
@@ -32,7 +63,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 **Files Modified**:
 - `scripts/train_model.py` - Complete refactor of model loading logic
 
-### 3. CRF Constraint Mask Device Handling
+### 4. CRF Constraint Mask Device Handling
 **Issue**: CRF constraint masks were not properly moved to the correct device (MPS/GPU), causing device mismatch errors.
 
 **Solution**: 
@@ -45,7 +76,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 
 ## 🔧 Training Stability Improvements
 
-### 4. NaN/Inf Loss Detection and Handling
+### 5. NaN/Inf Loss Detection and Handling
 **Issue**: Training would fail with NaN or infinite loss values, often silently.
 
 **Solution**: Added comprehensive NaN/Inf detection throughout training:
@@ -58,7 +89,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 **Files Modified**:
 - `scripts/train_model.py` - Added `check_model_parameters()` function and extensive validation
 
-### 5. Enhanced Gradient Clipping
+### 6. Enhanced Gradient Clipping
 **Issue**: Exploding gradients caused training instability.
 
 **Solution**: Implemented more aggressive gradient clipping:
@@ -69,7 +100,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 **Files Modified**:
 - `scripts/train_model.py` - Enhanced gradient clipping logic
 
-### 6. Learning Rate Management
+### 7. Learning Rate Management
 **Issue**: High learning rates caused numerical instability.
 
 **Solution**: Added automatic learning rate reduction:
@@ -82,7 +113,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 
 ## 📊 Metrics and Reporting Fixes
 
-### 7. Metrics Array Indexing Fix
+### 8. Metrics Array Indexing Fix
 **Issue**: `IndexError: too many indices for array` in metrics reporting functions.
 
 **Solution**: Fixed array shape handling in metrics functions:
@@ -93,7 +124,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 **Files Modified**:
 - `scripts/train_model.py` - Fixed `report_metrics()` and `report_metrics_kingdom_averaged()` functions
 
-### 8. Empty Metrics Handling
+### 9. Empty Metrics Handling
 **Issue**: Pandas DataFrame creation failed when metrics were empty dictionaries.
 
 **Solution**: Added graceful handling for empty metrics:
@@ -105,7 +136,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 
 ## 💾 Model Saving Improvements
 
-### 9. Guaranteed Model Checkpointing
+### 10. Guaranteed Model Checkpointing
 **Issue**: Model was only saved when validation metrics improved, leading to missing checkpoints in short training runs.
 
 **Solution**: Always save final model:
@@ -118,7 +149,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 
 ## 🐛 Linter and Syntax Fixes
 
-### 10. Method Definition Fixes
+### 11. Method Definition Fixes
 **Issue**: Linter errors in utility classes.
 
 **Solution**: Fixed method definitions:
@@ -128,7 +159,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 **Files Modified**:
 - `scripts/train_model.py` - Fixed method signatures and variable assignments
 
-### 11. OpenMP Conflict Resolution
+### 12. OpenMP Conflict Resolution
 **Issue**: OpenMP library conflicts on macOS causing crashes.
 
 **Solution**: Added environment variable setting:
@@ -140,7 +171,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 
 ## 🔍 Debugging and Monitoring
 
-### 12. Verbose Logging System
+### 13. Verbose Logging System
 **Issue**: Limited visibility into training process and debugging information.
 
 **Solution**: Added comprehensive debug logging:
@@ -152,7 +183,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 **Files Modified**:
 - `scripts/train_model.py` - Added `setup_logger()` function and extensive debug logging
 
-### 13. Training Data Structure Validation
+### 14. Training Data Structure Validation
 **Issue**: Limited visibility into data loading and batch structure.
 
 **Solution**: Added data validation logging:
@@ -165,7 +196,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 
 ## 🏗️ Architecture Improvements
 
-### 14. Model Loading Refactor
+### 15. Model Loading Refactor
 **Issue**: Complex and error-prone model loading logic.
 
 **Solution**: Simplified and robustified model loading:
@@ -176,7 +207,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 **Files Modified**:
 - `scripts/train_model.py` - Complete refactor of model initialization
 
-### 15. Device Compatibility
+### 16. Device Compatibility
 **Issue**: Limited device support and potential device mismatch errors.
 
 **Solution**: Enhanced device handling:
@@ -189,7 +220,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 
 ## 📝 Documentation Updates
 
-### 16. README Updates
+### 17. README Updates
 **Issue**: Outdated examples and documentation.
 
 **Solution**: Updated documentation:
@@ -202,7 +233,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 
 ## 🧪 Testing and Validation
 
-### 17. Debug Scripts
+### 18. Debug Scripts
 **Issue**: Limited tools for debugging training issues.
 
 **Solution**: Created comprehensive debug scripts:
@@ -216,7 +247,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 
 ## 📈 Performance Improvements
 
-### 18. Training Efficiency
+### 19. Training Efficiency
 **Issue**: Inefficient training loops and error handling.
 
 **Solution**: Optimized training process:
@@ -229,7 +260,7 @@ This document outlines the key changes made to this forked SignalP 6.0 repositor
 
 ## 🔒 Security and Stability
 
-### 19. Error Recovery
+### 20. Error Recovery
 **Issue**: Training would crash on first error.
 
 **Solution**: Implemented robust error recovery:

@@ -2,7 +2,7 @@
 """
 Distill ensemble model (6 models) into one.
 
-Training data is loaded from a pickled dict that contains 
+Training data is loaded from a pickled dict that contains
 the ensembled probs (average of 6 model outputs)
 Contains the following:
     'input_ids': (n_samples, 73) tensor of input ids
@@ -70,7 +70,8 @@ def train(
     global_step,
 ):
     """Cut batches from tensors and process batch-wise
-    pos_probs are either the CRF marginals, or the emissions. Specify with args.use_emissions_loss."""
+    pos_probs are either the CRF marginals, or the emissions. Specify with args.use_emissions_loss.
+    """
     # process as batches
     all_losses = []
     all_losses_spi = []
@@ -267,9 +268,11 @@ def main_training_loop(args: argparse.ArgumentParser):
 
         setattr(
             config,
-            "num_hidden_layers"
-            if args.model_architecture == "bert_prottrans"
-            else "n_layer",
+            (
+                "num_hidden_layers"
+                if args.model_architecture == "bert_prottrans"
+                else "n_layer"
+            ),
             n_layers - args.remove_top_layers,
         )
 

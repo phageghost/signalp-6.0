@@ -5,7 +5,7 @@ Script to train Bert-CRF (SignalP 6.0).
 Loas a pretrained Bert checkpoint into the custom `BertSequenceTaggingCRF` model.
 Sets config as specified by CLI. Consult help string of args for info.
 
-Train loop is not cleaned up, went through many different experiments. A lot of the code is 
+Train loop is not cleaned up, went through many different experiments. A lot of the code is
 not needed when training the final models.
 
 Uses wandb for logging. There's a dirty fix in place to prevent wandb from logging, when wandb was
@@ -14,19 +14,21 @@ wandb reinit is still bugged.
 """
 # Felix August 2020
 import os
+
 # Fix OpenMP conflict on macOS
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import argparse
 import time
 import numpy as np
 import torch
+
 # Set default tensor type to float32 for Metal compatibility
 torch.set_default_dtype(torch.float32)
 
 import logging
 import subprocess
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict
 from signalp6.models import ProteinBertTokenizer, BertSequenceTaggingCRF
 from transformers import BertConfig
 from signalp6.training_utils import (
@@ -38,12 +40,11 @@ from signalp6.training_utils import (
 )
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
-from signalp6.utils import get_metrics_multistate, find_cs_tag
+from signalp6.utils import get_metrics_multistate
 from signalp6.utils import class_aware_cosine_similarities, get_region_lengths
 
 
 # import data
-import os
 import wandb
 
 from sklearn.metrics import (
@@ -142,7 +143,7 @@ def tagged_seq_to_cs_multiclass(tagged_seqs: np.ndarray, sp_tokens=[0, 4, 5]):
     """
 
     def get_last_sp_idx(x: np.ndarray) -> int:
-        """Func1d to get the last index that is tagged as SP. use with np.apply_along_axis. """
+        """Func1d to get the last index that is tagged as SP. use with np.apply_along_axis."""
         sp_idx = np.where(np.isin(x, sp_tokens))[0]
         if len(sp_idx) > 0:
             max_idx = sp_idx.max() + 1
@@ -173,20 +174,20 @@ def report_metrics(
         # Flatten arrays if needed
         true_cs = true_cs.flatten()
         pred_cs = pred_cs.flatten()
-    
+
     # Ensure both arrays have the same length
     if len(true_cs) != len(pred_cs):
         min_len = min(len(true_cs), len(pred_cs))
         true_cs = true_cs[:min_len]
         pred_cs = pred_cs[:min_len]
-    
+
     # Now create the mask and filter out NaN values
     valid_mask = ~np.isnan(true_cs)
-    
+
     # Apply the mask
     pred_cs = pred_cs[valid_mask]
     true_cs = true_cs[valid_mask]
-    
+
     # Replace any remaining NaN values with -1
     true_cs = np.where(np.isnan(true_cs), -1, true_cs)
     pred_cs = np.where(np.isnan(pred_cs), -1, pred_cs)
@@ -236,21 +237,21 @@ def report_metrics_kingdom_averaged(
         # Flatten arrays if needed
         true_cs = true_cs.flatten()
         pred_cs = pred_cs.flatten()
-    
+
     # Ensure both arrays have the same length
     if len(true_cs) != len(pred_cs):
         min_len = min(len(true_cs), len(pred_cs))
         true_cs = true_cs[:min_len]
         pred_cs = pred_cs[:min_len]
-    
+
     # Now create the mask and filter out NaN values
     valid_mask = ~np.isnan(true_cs)
-    
+
     # Apply the mask
     cs_kingdom = kingdom_ids[valid_mask]
     pred_cs = pred_cs[valid_mask]
     true_cs = true_cs[valid_mask]
-    
+
     # Replace any remaining NaN values with -1
     true_cs = np.where(np.isnan(true_cs), -1, true_cs)
     pred_cs = np.where(np.isnan(pred_cs), -1, pred_cs)
@@ -334,40 +335,56 @@ def report_metrics_kingdom_averaged(
     return metrics_dict
 
 
-def check_model_parameters(model: torch.nn.Module, logger: logging.Logger, stage: str = "training"):
+def check_model_parameters(
+    model: torch.nn.Module, logger: logging.Logger, stage: str = "training"
+):
     """Check if the model parameters contain NaN or Inf values."""
     logger.info(f"Checking model parameters for NaN/Inf values at {stage} start...")
-    
+
     has_nan = False
     has_inf = False
     problematic_params = []
-    
+
     # Check parameters
     for name, param in model.named_parameters():
         if torch.isnan(param).any():
             logger.error(f"NaN detected in model parameter '{name}'!")
             has_nan = True
-            problematic_params.append((name, "NaN", param.shape, param.min(), param.max()))
+            problematic_params.append(
+                (name, "NaN", param.shape, param.min(), param.max())
+            )
         if torch.isinf(param).any():
             logger.error(f"Inf detected in model parameter '{name}'!")
             has_inf = True
-            problematic_params.append((name, "Inf", param.shape, param.min(), param.max()))
-    
+            problematic_params.append(
+                (name, "Inf", param.shape, param.min(), param.max())
+            )
+
     # Check buffers (like running statistics in BatchNorm, etc.)
     for name, buffer in model.named_buffers():
         if torch.isnan(buffer).any():
             logger.error(f"NaN detected in model buffer '{name}'!")
             has_nan = True
-            problematic_params.append((name, "NaN (buffer)", buffer.shape, buffer.min(), buffer.max()))
+            problematic_params.append(
+                (name, "NaN (buffer)", buffer.shape, buffer.min(), buffer.max())
+            )
         if torch.isinf(buffer).any():
             logger.error(f"Inf detected in model buffer '{name}'!")
             has_inf = True
-            problematic_params.append((name, "Inf (buffer)", buffer.shape, buffer.min(), buffer.max()))
-    
+            problematic_params.append(
+                (name, "Inf (buffer)", buffer.shape, buffer.min(), buffer.max())
+            )
+
     if has_nan or has_inf:
-        logger.error(f"Model has {len(problematic_params)} problematic parameters/buffers at {stage} start!")
-        for name, problem_type, shape, min_val, max_val in problematic_params[:5]:  # Show first 5
-            logger.error(f"  - {name}: {problem_type}, shape {shape}, range [{min_val:.6f}, {max_val:.6f}]")
+        logger.error(
+            f"Model has {len(problematic_params)} problematic parameters/buffers at {stage} start!"
+        )
+        for name, problem_type, shape, min_val, max_val in problematic_params[
+            :5
+        ]:  # Show first 5
+            logger.error(
+                f"  - {name}: {problem_type}, shape {shape}, range [{min_val:.6f}, {max_val:.6f}]"
+            )
         return False
     else:
         logger.info(f"All model parameters and buffers are valid at {stage} start")
@@ -402,11 +419,11 @@ def train(
         logger.info(f"Processing batch {i} ...")
         if args.verbose:
             logger.debug(f"Batch {i}: Starting forward pass")
-            
+
             # Check model state
             logger.debug(f"Batch {i}: Model training mode: {model.training}")
             logger.debug(f"Batch {i}: Model device: {next(model.parameters()).device}")
-        
+
         if args.sp_region_labels:
             (
                 data,
@@ -432,9 +449,13 @@ def train(
         targets = targets.to(device, dtype=torch.long)
         input_mask = input_mask.to(device, dtype=torch.bool)
         global_targets = global_targets.to(device, dtype=torch.long)
-        sample_weights = sample_weights.to(device, dtype=torch.float32) if args.use_sample_weights else None
+        sample_weights = (
+            sample_weights.to(device, dtype=torch.float32)
+            if args.use_sample_weights
+            else None
+        )
         kingdom_ids = kingdom_ids.to(device, dtype=torch.long)
-        
+
         if args.verbose:
             # Check for NaN/Inf in inputs
             if torch.isnan(data).any():
@@ -445,7 +466,7 @@ def train(
                 logger.warning(f"Batch {i}: NaN detected in global targets")
             if sample_weights is not None and torch.isnan(sample_weights).any():
                 logger.warning(f"Batch {i}: NaN detected in sample weights")
-            
+
             # Check for extreme values
             if torch.isinf(data).any():
                 logger.warning(f"Batch {i}: Inf detected in input data")
@@ -453,13 +474,19 @@ def train(
                 logger.warning(f"Batch {i}: Inf detected in targets")
             if torch.isinf(global_targets).any():
                 logger.warning(f"Batch {i}: Inf detected in global targets")
-            
+
             # Log input statistics
             logger.debug(f"Batch {i}: Input data range: [{data.min()}, {data.max()}]")
-            logger.debug(f"Batch {i}: Targets range: [{targets.min()}, {targets.max()}]")
-            logger.debug(f"Batch {i}: Global targets range: [{global_targets.min()}, {global_targets.max()}]")
+            logger.debug(
+                f"Batch {i}: Targets range: [{targets.min()}, {targets.max()}]"
+            )
+            logger.debug(
+                f"Batch {i}: Global targets range: [{global_targets.min()}, {global_targets.max()}]"
+            )
             if sample_weights is not None:
-                logger.debug(f"Batch {i}: Sample weights range: [{sample_weights.min():.6f}, {sample_weights.max():.6f}]")
+                logger.debug(
+                    f"Batch {i}: Sample weights range: [{sample_weights.min():.6f}, {sample_weights.max():.6f}]"
+                )
 
         optimizer.zero_grad()
 
@@ -472,7 +499,7 @@ def train(
             sample_weights=sample_weights,
             kingdom_ids=kingdom_ids if args.kingdom_embed_size > 0 else None,
         )
-        
+
         if args.verbose:
             # Check for NaN/Inf in raw model outputs
             if torch.isnan(loss).any():
@@ -485,11 +512,11 @@ def train(
                 logger.error(f"Batch {i}: NaN detected in global_probs from model!")
             if torch.isnan(pos_probs).any():
                 logger.error(f"Batch {i}: NaN detected in pos_probs from model!")
-        
+
         loss = (
             loss.mean()
         )  # if DataParallel because loss is a vector, if not doesn't matter
-        
+
         if args.verbose:
             # Check if loss.mean() introduced NaN/Inf
             if torch.isnan(loss).any():
@@ -498,15 +525,21 @@ def train(
             if torch.isinf(loss).any():
                 logger.error(f"Batch {i}: Inf introduced by loss.mean()!")
                 logger.error(f"  - Original loss had shape: {loss.shape}")
-            
-            logger.debug(f"Batch {i}: Raw loss shape: {loss.shape}, "
-                        f"Loss value: {loss.item():.6f}")
-            logger.debug(f"Batch {i}: Global probs shape: {global_probs.shape}, "
-                        f"Position probs shape: {pos_probs.shape}")
+
+            logger.debug(
+                f"Batch {i}: Raw loss shape: {loss.shape}, "
+                f"Loss value: {loss.item():.6f}"
+            )
+            logger.debug(
+                f"Batch {i}: Global probs shape: {global_probs.shape}, "
+                f"Position probs shape: {pos_probs.shape}"
+            )
             logger.debug(f"Batch {i}: Position predictions shape: {pos_preds.shape}")
-            logger.debug(f"Batch {i}: Targets shape: {targets.shape}, "
-                        f"Global targets shape: {global_targets.shape}")
-            
+            logger.debug(
+                f"Batch {i}: Targets shape: {targets.shape}, "
+                f"Global targets shape: {global_targets.shape}"
+            )
+
             # Check for NaN/Inf in model outputs
             if torch.isnan(loss).any():
                 logger.warning(f"Batch {i}: NaN detected in loss")
@@ -516,33 +549,43 @@ def train(
                 logger.warning(f"Batch {i}: NaN detected in position probabilities")
             if torch.isnan(pos_preds).any():
                 logger.warning(f"Batch {i}: NaN detected in position predictions")
-            
+
             if torch.isinf(loss).any():
                 logger.warning(f"Batch {i}: Inf detected in loss")
             if torch.isinf(global_probs).any():
                 logger.warning(f"Batch {i}: Inf detected in global probabilities")
             if torch.isinf(pos_probs).any():
                 logger.warning(f"Batch {i}: Inf detected in position probabilities")
-            
+
             # Log output statistics
-            logger.debug(f"Batch {i}: Global probs range: [{global_probs.min():.6f}, {global_probs.max():.6f}]")
-            logger.debug(f"Batch {i}: Position probs range: [{pos_probs.min():.6f}, {pos_probs.max():.6f}]")
-            logger.debug(f"Batch {i}: Position predictions range: [{pos_preds.min()}, {pos_preds.max()}]")
-        
+            logger.debug(
+                f"Batch {i}: Global probs range: [{global_probs.min():.6f}, {global_probs.max():.6f}]"
+            )
+            logger.debug(
+                f"Batch {i}: Position probs range: [{pos_probs.min():.6f}, {pos_probs.max():.6f}]"
+            )
+            logger.debug(
+                f"Batch {i}: Position predictions range: [{pos_preds.min()}, {pos_preds.max()}]"
+            )
+
         # Check if loss is NaN or Inf before regularization and handle accordingly
         if torch.isnan(loss).any() or torch.isinf(loss).any():
-            logger.error(f"Batch {i}: Loss is NaN or Inf BEFORE regularization, skipping batch")
+            logger.error(
+                f"Batch {i}: Loss is NaN or Inf BEFORE regularization, skipping batch"
+            )
             if args.verbose:
                 logger.debug(f"Batch {i}: Skipping backward pass and optimizer step")
             continue
-        
+
         # Check for extreme loss values that might cause numerical instability
         if loss.item() > 1e6:
-            logger.warning(f"Batch {i}: Loss value {loss.item():.2e} is extremely high, skipping batch")
+            logger.warning(
+                f"Batch {i}: Loss value {loss.item():.2e} is extremely high, skipping batch"
+            )
             if args.verbose:
                 logger.debug(f"Batch {i}: Skipping backward pass and optimizer step")
             continue
-        
+
         total_loss += loss.item()
         all_targets.append(targets.detach().cpu().numpy())
         all_global_targets.append(global_targets.detach().cpu().numpy())
@@ -550,7 +593,10 @@ def train(
         all_pos_preds.append(pos_preds.detach().cpu().numpy())
         all_kingdom_ids.append(kingdom_ids.detach().cpu().numpy())
         all_token_ids.append(data.detach().cpu().numpy())
-        all_cs.append(cleavage_sites if args.sp_region_labels else None)
+        if args.sp_region_labels:
+            all_cs.append(cleavage_sites)
+        else:
+            all_cs.append(None)
 
         # if args.region_regularization_alpha >0:
         # removing special tokens by indexing should be sufficient.
@@ -558,15 +604,51 @@ def train(
         if args.sp_region_labels and args.region_regularization_alpha > 0:
 
             # Ensure all tensors are on the same device for regularization
-            pos_probs_device = pos_probs.to(device)
-            data_device = data[:, 2:-1].to(device)
+            # Make slicing adaptive to handle different sequence lengths
+            # We need to ensure pos_probs and data have matching sequence dimensions
+
+            if args.verbose:
+                logger.debug(f"Batch {i}: Original pos_probs shape: {pos_probs.shape}")
+                logger.debug(f"Batch {i}: Original data shape: {data.shape}")
+
+            # Determine the actual sequence length from pos_probs (model output)
+            seq_len = pos_probs.shape[1]
+
+            # Slice data to match the sequence length of pos_probs
+            # Remove special tokens from data to match pos_probs length
+            if data.shape[1] > seq_len:
+                # Data is longer than model output, remove tokens from both ends
+                tokens_to_remove = data.shape[1] - seq_len
+                start_idx = tokens_to_remove // 2
+                end_idx = data.shape[1] - (tokens_to_remove - start_idx)
+                pos_probs_device = pos_probs.to(device)
+                data_device = data[:, start_idx:end_idx].to(device)
+                input_mask_device = input_mask[:, start_idx:end_idx].to(device)
+            else:
+                # Standard case: remove 1 token from each end
+                pos_probs_device = pos_probs[:, 1:-1, :].to(device)
+                data_device = data[:, 1:-1].to(device)
+                input_mask_device = input_mask[:, 1:-1].to(device)
+
             global_targets_device = global_targets.to(device)
-            input_mask_device = input_mask[:, 2:-1].to(device)
-            
+
+            if args.verbose:
+                logger.debug(
+                    f"Batch {i}: Adaptive slicing - seq_len: {seq_len}, data.shape[1]: {data.shape[1]}"
+                )
+                logger.debug(
+                    f"Batch {i}: Final pos_probs_device shape: {pos_probs_device.shape}"
+                )
+                logger.debug(f"Batch {i}: Final data_device shape: {data_device.shape}")
+                logger.debug(
+                    f"Batch {i}: pos_probs_device[:2] = {pos_probs_device.shape[:2]}"
+                )
+                logger.debug(f"Batch {i}: data_device.shape = {data_device.shape}")
+
             nh, hc = compute_cosine_region_regularization(
                 pos_probs_device, data_device, global_targets_device, input_mask_device
             )
-            
+
             if args.verbose:
                 # Check regularization outputs
                 if torch.isnan(nh).any():
@@ -577,32 +659,44 @@ def train(
                     logger.warning(f"Batch {i}: Inf detected in n-h regularization")
                 if torch.isinf(hc).any():
                     logger.warning(f"Batch {i}: Inf detected in h-c regularization")
-                
-                logger.debug(f"Batch {i}: n-h regularization range: [{nh.min():.6f}, {nh.max():.6f}], mean: {nh.mean():.6f}")
-                logger.debug(f"Batch {i}: h-c regularization range: [{hc.min():.6f}, {hc.max():.6f}], mean: {hc.mean():.6f}")
-                logger.debug(f"Batch {i}: Regularization alpha: {args.region_regularization_alpha}")
-                logger.debug(f"Batch {i}: Loss before regularization: {loss.item():.6f}")
-            
+
+                logger.debug(
+                    f"Batch {i}: n-h regularization range: [{nh.min():.6f}, {nh.max():.6f}], mean: {nh.mean():.6f}"
+                )
+                logger.debug(
+                    f"Batch {i}: h-c regularization range: [{hc.min():.6f}, {hc.max():.6f}], mean: {hc.mean():.6f}"
+                )
+                logger.debug(
+                    f"Batch {i}: Regularization alpha: {args.region_regularization_alpha}"
+                )
+                logger.debug(
+                    f"Batch {i}: Loss before regularization: {loss.item():.6f}"
+                )
+
             loss = loss + nh.mean() * args.region_regularization_alpha
             loss = loss + hc.mean() * args.region_regularization_alpha
-            
+
             if args.verbose:
                 logger.debug(f"Batch {i}: Loss after regularization: {loss.item():.6f}")
-            
-                    # Check if loss became NaN or Inf after regularization
+
+                # Check if loss became NaN or Inf after regularization
         if torch.isnan(loss).any() or torch.isinf(loss).any():
-            logger.error(f"Batch {i}: Loss became NaN or Inf AFTER regularization, skipping batch")
+            logger.error(
+                f"Batch {i}: Loss became NaN or Inf AFTER regularization, skipping batch"
+            )
             if args.verbose:
                 logger.debug(f"Batch {i}: Skipping backward pass and optimizer step")
             continue
-        
+
         # Check for Inf values in model outputs that might cause issues
         if torch.isinf(global_probs).any() or torch.isinf(pos_probs).any():
-            logger.error(f"Batch {i}: Inf values detected in model outputs, skipping batch")
+            logger.error(
+                f"Batch {i}: Inf values detected in model outputs, skipping batch"
+            )
             if args.verbose:
                 logger.debug(f"Batch {i}: Skipping backward pass and optimizer step")
             continue
-            
+
             log_metrics(
                 {
                     "n-h regularization": nh.mean().detach().cpu().numpy(),
@@ -621,15 +715,21 @@ def train(
             for name, param in model.named_parameters():
                 if param.grad is not None:
                     if torch.isnan(param.grad).any():
-                        logger.error(f"Batch {i}: NaN detected in gradients for parameter '{name}'!")
+                        logger.error(
+                            f"Batch {i}: NaN detected in gradients for parameter '{name}'!"
+                        )
                         has_nan_grad = True
                     if torch.isinf(param.grad).any():
-                        logger.error(f"Batch {i}: Inf detected in gradients for parameter '{name}'!")
+                        logger.error(
+                            f"Batch {i}: Inf detected in gradients for parameter '{name}'!"
+                        )
                         has_inf_grad = True
-            
+
             if has_nan_grad or has_inf_grad:
-                logger.error(f"Batch {i}: Model has NaN/Inf gradients after backward pass!")
-            
+                logger.error(
+                    f"Batch {i}: Model has NaN/Inf gradients after backward pass!"
+                )
+
             # Log gradient information
             total_norm = 0
             param_count = 0
@@ -638,28 +738,36 @@ def train(
                     param_norm = p.grad.data.norm(2)
                     total_norm += param_norm.item() ** 2
                     param_count += 1
-            total_norm = total_norm ** (1. / 2)
-            logger.debug(f"Batch {i}: Total gradient norm: {total_norm:.6f}, "
-                        f"Parameters with gradients: {param_count}")
+            total_norm = total_norm ** (1.0 / 2)
+            logger.debug(
+                f"Batch {i}: Total gradient norm: {total_norm:.6f}, "
+                f"Parameters with gradients: {param_count}"
+            )
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         if args.clip:
             # More aggressive gradient clipping for numerical stability
-            clip_norm = min(args.clip, 0.1)  # Use smaller clipping norm if gradients are large
+            clip_norm = min(
+                args.clip, 0.1
+            )  # Use smaller clipping norm if gradients are large
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_norm)
             if args.verbose:
-                logger.debug(f"Batch {i}: Applied gradient clipping with norm {clip_norm}")
-                
+                logger.debug(
+                    f"Batch {i}: Applied gradient clipping with norm {clip_norm}"
+                )
+
             # Check if gradients are still too large after clipping
             total_norm_after = 0
             for p in model.parameters():
                 if p.grad is not None:
                     param_norm = p.grad.data.norm(2)
                     total_norm_after += param_norm.item() ** 2
-            total_norm_after = total_norm_after ** (1. / 2)
-            
+            total_norm_after = total_norm_after ** (1.0 / 2)
+
             if total_norm_after > 1.0:
-                logger.warning(f"Batch {i}: Gradients still large after clipping: {total_norm_after:.2f}")
+                logger.warning(
+                    f"Batch {i}: Gradients still large after clipping: {total_norm_after:.2f}"
+                )
                 # Skip this batch if gradients are still too large
                 continue
 
@@ -672,14 +780,20 @@ def train(
             has_inf_param = False
             for name, param in model.named_parameters():
                 if torch.isnan(param).any():
-                    logger.error(f"Batch {i}: NaN detected in parameter '{name}' after optimizer step!")
+                    logger.error(
+                        f"Batch {i}: NaN detected in parameter '{name}' after optimizer step!"
+                    )
                     has_nan_param = True
                 if torch.isinf(param).any():
-                    logger.error(f"Batch {i}: Inf detected in parameter '{name}' after optimizer step!")
+                    logger.error(
+                        f"Batch {i}: Inf detected in parameter '{name}' after optimizer step!"
+                    )
                     has_inf_param = True
-            
+
             if has_nan_param or has_inf_param:
-                logger.error(f"Batch {i}: Model has NaN/Inf parameters after optimizer step!")
+                logger.error(
+                    f"Batch {i}: Model has NaN/Inf parameters after optimizer step!"
+                )
 
         log_metrics({"loss": loss.item()}, "train", global_step)
 
@@ -688,29 +802,29 @@ def train(
             log_metrics({"Learning rate": current_lr}, "train", global_step)
         else:
             current_lr = optimizer.param_groups[0]["lr"]
-            log_metrics(
-                {"Learning Rate": current_lr}, "train", global_step
-            )
-        
+            log_metrics({"Learning Rate": current_lr}, "train", global_step)
+
         # Reduce learning rate if we're experiencing instability
         if loss.item() > 1e4 and current_lr > 1e-5:
             reduction_factor = 0.5
             new_lr = current_lr * reduction_factor
             for param_group in optimizer.param_groups:
-                param_group['lr'] = new_lr
-            logger.warning(f"Batch {i}: Reducing learning rate from {current_lr:.2e} to {new_lr:.2e} due to high loss")
+                param_group["lr"] = new_lr
+            logger.warning(
+                f"Batch {i}: Reducing learning rate from {current_lr:.2e} to {new_lr:.2e} due to high loss"
+            )
             current_lr = new_lr
-        
+
         if args.verbose:
             logger.debug(f"Batch {i}: Learning rate: {current_lr:.8f}")
-        
+
         global_step += 1
 
     # Check if we have any valid batches
     if len(all_targets) == 0:
         logger.error("No valid batches were processed - all batches had Inf/NaN loss")
-        return float('inf'), global_step
-        
+        return float("inf"), global_step
+
     all_targets = np.concatenate(all_targets)
     all_global_targets = np.concatenate(all_global_targets)
     all_global_probs = np.concatenate(all_global_probs)
@@ -721,15 +835,21 @@ def train(
         all_cs = np.concatenate(all_cs)
     else:
         all_cs = None
-    
+
     if args.verbose:
-        logger.debug(f"Epoch summary: Processed {len(train_data)} batches, "
-                    f"Total loss: {total_loss:.6f}, "
-                    f"Average loss per batch: {total_loss/len(train_data):.6f}")
-        logger.debug(f"Epoch summary: Targets shape: {all_targets.shape}, "
-                    f"Global targets shape: {all_global_targets.shape}")
-        logger.debug(f"Epoch summary: Global probs shape: {all_global_probs.shape}, "
-                    f"Position predictions shape: {all_pos_preds.shape}")
+        logger.debug(
+            f"Epoch summary: Processed {len(train_data)} batches, "
+            f"Total loss: {total_loss:.6f}, "
+            f"Average loss per batch: {total_loss/len(train_data):.6f}"
+        )
+        logger.debug(
+            f"Epoch summary: Targets shape: {all_targets.shape}, "
+            f"Global targets shape: {all_global_targets.shape}"
+        )
+        logger.debug(
+            f"Epoch summary: Global probs shape: {all_global_probs.shape}, "
+            f"Position predictions shape: {all_pos_preds.shape}"
+        )
 
     if args.average_per_kingdom:
         metrics = report_metrics_kingdom_averaged(
@@ -755,7 +875,9 @@ def train(
     return total_loss / len(train_data), global_step
 
 
-def validate(model: torch.nn.Module, valid_data: DataLoader, logger: logging.Logger, args) -> float:
+def validate(
+    model: torch.nn.Module, valid_data: DataLoader, logger: logging.Logger, args
+) -> float:
     """Run over the validation data. Average loss over the full set."""
     model.eval()
 
@@ -793,7 +915,11 @@ def validate(model: torch.nn.Module, valid_data: DataLoader, logger: logging.Log
         targets = targets.to(device, dtype=torch.long)
         input_mask = input_mask.to(device, dtype=torch.bool)
         global_targets = global_targets.to(device, dtype=torch.long)
-        sample_weights = sample_weights.to(device, dtype=torch.float32) if args.use_sample_weights else None
+        sample_weights = (
+            sample_weights.to(device, dtype=torch.float32)
+            if args.use_sample_weights
+            else None
+        )
         kingdom_ids = kingdom_ids.to(device, dtype=torch.long)
 
         with torch.no_grad():
@@ -822,8 +948,8 @@ def validate(model: torch.nn.Module, valid_data: DataLoader, logger: logging.Log
     # Check if we have any valid batches
     if len(all_targets) == 0:
         logger.error("No valid batches were processed in validation")
-        return float('inf'), {}
-        
+        return float("inf"), {}
+
     all_targets = np.concatenate(all_targets)
     all_global_targets = np.concatenate(all_global_targets)
     all_global_probs = np.concatenate(all_global_probs)
@@ -834,13 +960,17 @@ def validate(model: torch.nn.Module, valid_data: DataLoader, logger: logging.Log
         all_cs = np.concatenate(all_cs)
     else:
         all_cs = None
-    
+
     if args.verbose:
-        logger.debug(f"Validation summary: Processed {len(valid_data)} batches, "
-                    f"Total loss: {total_loss:.6f}, "
-                    f"Average loss per batch: {total_loss/len(valid_data):.6f}")
-        logger.debug(f"Validation summary: Targets shape: {all_targets.shape}, "
-                    f"Global targets shape: {all_global_targets.shape}")
+        logger.debug(
+            f"Validation summary: Processed {len(valid_data)} batches, "
+            f"Total loss: {total_loss:.6f}, "
+            f"Average loss per batch: {total_loss/len(valid_data):.6f}"
+        )
+        logger.debug(
+            f"Validation summary: Targets shape: {all_targets.shape}, "
+            f"Global targets shape: {all_global_targets.shape}"
+        )
 
     if args.average_per_kingdom:
         metrics = report_metrics_kingdom_averaged(
@@ -912,7 +1042,7 @@ def main_training_loop(args: argparse.ArgumentParser):
     config = MODEL_DICT[args.model_architecture][0].from_pretrained(args.resume)
 
     # Handle xla_device attribute that may not exist in newer transformers versions
-    if hasattr(config, 'xla_device') and config.xla_device:
+    if hasattr(config, "xla_device") and config.xla_device:
         setattr(config, "xla_device", False)
 
     setattr(config, "num_labels", args.num_seq_labels)
@@ -932,7 +1062,7 @@ def main_training_loop(args: argparse.ArgumentParser):
         setattr(config, "use_kingdom_id", True)
         setattr(config, "kingdom_embed_size", args.kingdom_embed_size)
 
-    # Note: CRF constraints were an experimental feature that is not part of the 
+    # Note: CRF constraints were an experimental feature that is not part of the
     # intended SignalP 6.0 architecture described in the paper. The model should
     # learn valid transitions naturally from the training data.
 
@@ -958,9 +1088,11 @@ def main_training_loop(args: argparse.ArgumentParser):
 
         setattr(
             config,
-            "num_hidden_layers"
-            if args.model_architecture == "bert_prottrans"
-            else "n_layer",
+            (
+                "num_hidden_layers"
+                if args.model_architecture == "bert_prottrans"
+                else "n_layer"
+            ),
             n_layers - args.remove_top_layers,
         )
 
@@ -979,48 +1111,52 @@ def main_training_loop(args: argparse.ArgumentParser):
         tokenizer = TOKENIZER_DICT[args.model_architecture][0].from_pretrained(
             TOKENIZER_DICT[args.model_architecture][1], do_lower_case=False
         )
-    
+
     # Now load the model with the correct configuration
     # Create the model from scratch first to avoid CRF initialization issues
     logger.info("Creating model from scratch to avoid CRF initialization issues...")
     model = MODEL_DICT[args.model_architecture][1](config)
-    
+
     # Then load only the BERT weights from the pretrained checkpoint
     logger.info(f"Loading BERT weights from {args.resume}...")
     try:
         # Load the pretrained model temporarily to get the state dict
         temp_model = MODEL_DICT[args.model_architecture][1].from_pretrained(args.resume)
-        
+
         # Get the state dict and filter out non-BERT parameters
         state_dict = temp_model.state_dict()
         bert_state_dict = {}
         for key, value in state_dict.items():
             # Only load BERT-related weights, skip CRF and other newly initialized layers
-            if key.startswith('bert.') or key.startswith('embeddings.'):
+            if key.startswith("bert.") or key.startswith("embeddings."):
                 bert_state_dict[key] = value
-        
+
         # Load the filtered state dict
-        missing_keys, unexpected_keys = model.load_state_dict(bert_state_dict, strict=False)
+        missing_keys, unexpected_keys = model.load_state_dict(
+            bert_state_dict, strict=False
+        )
         logger.info(f"Loaded BERT weights successfully")
         if missing_keys:
             logger.info(f"Missing keys (expected): {missing_keys}")
         if unexpected_keys:
             logger.info(f"Unexpected keys (ignored): {unexpected_keys}")
-            
+
         # Clean up the temporary model
         del temp_model
-        
+
     except Exception as e:
         logger.warning(f"Failed to load BERT weights: {e}")
         logger.info("Continuing with random initialization...")
-    
+
     # Note: CRF constraints have been removed as they are not part of the intended
     # SignalP 6.0 architecture. The model learns valid transitions naturally.
-    
+
     # Resize embeddings if using custom tokenizer
     if args.kingdom_as_token:
         model.resize_token_embeddings(tokenizer.tokenizer.vocab_size)
-        logger.info(f"Resized model embeddings to match tokenizer vocab size: {tokenizer.tokenizer.vocab_size}")
+        logger.info(
+            f"Resized model embeddings to match tokenizer vocab size: {tokenizer.tokenizer.vocab_size}"
+        )
 
     # setup data
     val_id = args.validation_partition
@@ -1085,14 +1221,18 @@ def main_training_loop(args: argparse.ArgumentParser):
     logger.info(
         f"{len(train_data)} training sequences, {len(val_data)} validation sequences."
     )
-    
+
     if args.verbose:
         logger.debug(f"Training data type: {type(train_data).__name__}")
         logger.debug(f"Validation data type: {type(val_data).__name__}")
-        if hasattr(train_data, 'sample_weights'):
-            logger.debug(f"Training data has sample weights: {train_data.sample_weights is not None}")
-        if hasattr(train_data, 'balanced_sampling_weights'):
-            logger.debug(f"Training data has balanced sampling weights: {train_data.balanced_sampling_weights is not None}")
+        if hasattr(train_data, "sample_weights"):
+            logger.debug(
+                f"Training data has sample weights: {train_data.sample_weights is not None}"
+            )
+        if hasattr(train_data, "balanced_sampling_weights"):
+            logger.debug(
+                f"Training data has balanced sampling weights: {train_data.balanced_sampling_weights is not None}"
+            )
 
     train_loader = DataLoader(
         train_data,
@@ -1129,7 +1269,7 @@ def main_training_loop(args: argparse.ArgumentParser):
         )
 
     logger.info(f"Data loaded. One epoch = {len(train_loader)} batches.")
-    
+
     if args.verbose:
         logger.debug(f"Training data loader batch size: {args.batch_size}")
         logger.debug(f"Training data loader shuffle: True")
@@ -1181,13 +1321,17 @@ def main_training_loop(args: argparse.ArgumentParser):
         logger.debug(f"Optimizer: {args.optimizer}")
         logger.debug(f"Learning rate: {args.lr}")
         logger.debug(f"Weight decay: {args.wdecay}")
-        
+
         # Check if learning rate might be too high
         if args.lr > 0.01:
-            logger.warning(f"Learning rate {args.lr} might be too high and could cause instability")
+            logger.warning(
+                f"Learning rate {args.lr} might be too high and could cause instability"
+            )
         if args.lr > 0.1:
-            logger.error(f"Learning rate {args.lr} is very high and likely to cause NaN loss")
-        
+            logger.error(
+                f"Learning rate {args.lr} is very high and likely to cause NaN loss"
+            )
+
         if args.optimizer == "smart_adamax":
             logger.debug(f"Smart Adamax warmup: 0.1, t_total: {t_total}")
 
@@ -1195,22 +1339,30 @@ def main_training_loop(args: argparse.ArgumentParser):
     logger.info("Model set up!")
     num_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"Model has {num_parameters} trainable parameters")
-    
+
     # Check model parameters for NaN/Inf before starting training
     if args.verbose:
         check_model_parameters(model, logger, "training")
-        
+
         # Additional model diagnostics
         logger.debug(f"Model type: {type(model).__name__}")
-        logger.debug(f"Model base model prefix: {getattr(model, 'base_model_prefix', 'N/A')}")
+        logger.debug(
+            f"Model base model prefix: {getattr(model, 'base_model_prefix', 'N/A')}"
+        )
         logger.debug(f"Model config: {type(model.config).__name__}")
-        logger.debug(f"Model has kingdom embedding: {hasattr(model, 'kingdom_embedding')}")
-        if hasattr(model, 'kingdom_embedding'):
-            logger.debug(f"Kingdom embedding shape: {model.kingdom_embedding.weight.shape}")
-            logger.debug(f"Kingdom embedding device: {model.kingdom_embedding.weight.device}")
-        
+        logger.debug(
+            f"Model has kingdom embedding: {hasattr(model, 'kingdom_embedding')}"
+        )
+        if hasattr(model, "kingdom_embedding"):
+            logger.debug(
+                f"Kingdom embedding shape: {model.kingdom_embedding.weight.shape}"
+            )
+            logger.debug(
+                f"Kingdom embedding device: {model.kingdom_embedding.weight.device}"
+            )
+
         # CRF constraint masks are now properly initialized without NaN values
-    
+
     if args.verbose:
         logger.debug(f"Model device: {device}")
         logger.debug(f"Model architecture: {args.model_architecture}")
@@ -1219,20 +1371,32 @@ def main_training_loop(args: argparse.ArgumentParser):
         logger.debug(f"Learning rate: {args.lr}")
         logger.debug(f"Batch size: {args.batch_size}")
         logger.debug(f"Gradient clipping: {args.clip}")
-        
+
         # Log model configuration details
         logger.debug(f"Model config - hidden size: {model.config.hidden_size}")
-        logger.debug(f"Model config - num hidden layers: {model.config.num_hidden_layers}")
-        logger.debug(f"Model config - intermediate size: {model.config.intermediate_size}")
-        logger.debug(f"Model config - num attention heads: {model.config.num_attention_heads}")
+        logger.debug(
+            f"Model config - num hidden layers: {model.config.num_hidden_layers}"
+        )
+        logger.debug(
+            f"Model config - intermediate size: {model.config.intermediate_size}"
+        )
+        logger.debug(
+            f"Model config - num attention heads: {model.config.num_attention_heads}"
+        )
         logger.debug(f"Model config - dropout: {model.config.hidden_dropout_prob}")
-        logger.debug(f"Model config - attention dropout: {model.config.attention_probs_dropout_prob}")
-        
+        logger.debug(
+            f"Model config - attention dropout: {model.config.attention_probs_dropout_prob}"
+        )
+
         # Check for potential configuration issues
         if model.config.hidden_dropout_prob > 0.5:
-            logger.warning(f"High dropout rate {model.config.hidden_dropout_prob} might cause instability")
+            logger.warning(
+                f"High dropout rate {model.config.hidden_dropout_prob} might cause instability"
+            )
         if model.config.attention_probs_dropout_prob > 0.5:
-            logger.warning(f"High attention dropout rate {model.config.attention_probs_dropout_prob} might cause instability")
+            logger.warning(
+                f"High attention dropout rate {model.config.attention_probs_dropout_prob} might cause instability"
+            )
 
     logger.info(f"Running model on {device}, not using nvidia apex")
 
@@ -1259,18 +1423,22 @@ def main_training_loop(args: argparse.ArgumentParser):
             f"Step {global_step}, Epoch {epoch}: validating for {len(val_loader)} Validation steps"
         )
         if args.verbose:
-            logger.debug(f"Epoch {epoch}: Starting validation on {len(val_loader)} batches")
+            logger.debug(
+                f"Epoch {epoch}: Starting validation on {len(val_loader)} batches"
+            )
         val_loss, val_metrics = validate(model, val_loader, logger, args)
         log_metrics(val_metrics, "val", global_step)
         logger.info(
             f"Validation: MCC global {val_metrics['Detection MCC']}, MCC seq {val_metrics['CS MCC']}. Epochs without improvement: {num_epochs_no_improvement}. lr step {learning_rate_steps}"
         )
-        
+
         mcc_sum = val_metrics["Detection MCC"] + val_metrics["CS MCC"]
-        
+
         if args.verbose:
             logger.debug(f"Epoch {epoch}: Validation loss: {val_loss:.6f}")
-            logger.debug(f"Epoch {epoch}: Detection MCC: {val_metrics['Detection MCC']:.6f}")
+            logger.debug(
+                f"Epoch {epoch}: Detection MCC: {val_metrics['Detection MCC']:.6f}"
+            )
             logger.debug(f"Epoch {epoch}: CS MCC: {val_metrics['CS MCC']:.6f}")
             logger.debug(f"Epoch {epoch}: MCC sum: {mcc_sum:.6f}")
             logger.debug(f"Epoch {epoch}: Best MCC sum so far: {best_mcc_sum:.6f}")
@@ -1285,10 +1453,14 @@ def main_training_loop(args: argparse.ArgumentParser):
             logger.info(
                 f'New best model with loss {val_loss},MCC Sum {mcc_sum} MCC global {val_metrics["Detection MCC"]}, MCC seq {val_metrics["CS MCC"]}, Saving model, training step {global_step}'
             )
-            
+
             if args.verbose:
-                logger.debug(f"Epoch {epoch}: Saved new best model to {args.output_dir}")
-                logger.debug(f"Epoch {epoch}: Previous best MCC sum: {best_mcc_sum:.6f}")
+                logger.debug(
+                    f"Epoch {epoch}: Saved new best model to {args.output_dir}"
+                )
+                logger.debug(
+                    f"Epoch {epoch}: Previous best MCC sum: {best_mcc_sum:.6f}"
+                )
                 logger.debug(f"Epoch {epoch}: New best MCC sum: {mcc_sum:.6f}")
 
         else:
@@ -1315,7 +1487,7 @@ def main_training_loop(args: argparse.ArgumentParser):
         "val",
         global_step,
     )
-    
+
     # Always save the final model, even if no improvement was made
     logger.info(f"Saving final model to {args.output_dir}")
     model.save_pretrained(args.output_dir)
@@ -1359,7 +1531,9 @@ def main_training_loop(args: argparse.ArgumentParser):
 
         # Check if metrics are empty
         if not metrics and not val_metrics:
-            logger.info("No metrics to display - both test and validation metrics are empty")
+            logger.info(
+                "No metrics to display - both test and validation metrics are empty"
+            )
         else:
             # df = pd.DataFrame.from_dict(x, orient='index')
             # df.index = df.index.str.split('_', expand=True)

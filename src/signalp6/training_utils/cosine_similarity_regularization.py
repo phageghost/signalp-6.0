@@ -11,7 +11,7 @@ First, we aggregate the probabilities of the different tags into n,h,c
 (we sum them up at each position, according to the defined region membership of each CRF label, so that we get 3 numbers)
 (n_samples, seq_len, n_labels) -> (n_samples, seq_len, 3)
 
-We then transform these probabilities over the sequence length into 
+We then transform these probabilities over the sequence length into
 a pseudo-count for each AA. So for each AA, we sum all positions in the sequence that have it. We do that for n,h and c each.
 (n_samples, seq_len, 3) -> (n_samples, 20, 3)
 
@@ -67,7 +67,9 @@ def torch_isin(
     element is True when value at this position is in test_elements"""
 
     if type(test_elements) == list:
-        test_elements = torch.tensor(test_elements, device=element.device, dtype=element.dtype)
+        test_elements = torch.tensor(
+            test_elements, device=element.device, dtype=element.dtype
+        )
 
     bool_tensor = (element.unsqueeze(-1) == test_elements).any(-1)
 

@@ -6,9 +6,9 @@ to arrays of non-deterministic labels with region information
 
 
 The SP starts with the n-region that is composed of a positively charged stretch of 5–8 amino acid residues.
-This part probably enforces the proper topology on a polypeptide during its translocation through the endoplasmic 
-reticulum membrane based on the positive-inside rule [9]. The n-region is followed by the h-region, a stretch of 
-8–12 hydrophobic amino acids, which constitutes the core of the SP and usually forms an α-helix. The third component 
+This part probably enforces the proper topology on a polypeptide during its translocation through the endoplasmic
+reticulum membrane based on the positive-inside rule [9]. The n-region is followed by the h-region, a stretch of
+8–12 hydrophobic amino acids, which constitutes the core of the SP and usually forms an α-helix. The third component
 of the SP is the polar and uncharged c-region. This part is usually six residues long and ends with a cleavage site,
 at which a signal peptidase cuts the SP off during or after protein translocation into the lumen of the endoplasmic reticulum [10].
 

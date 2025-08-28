@@ -58,11 +58,11 @@ def make_one_dataframe(regions_gff: str, output_gff: str, processed_fasta: str):
     # make proper SP type. gff3 only specifies 'signal_peptide' and 'lipoprotein_signal_peptide'
     # rest is in Note column.
     for idx, row in df_regions.iterrows():
-        if row['Note'] == 'Note=TAT':
-            df_regions.loc[idx, 'SP type'] = 'tat_' + df_regions.loc[idx, 'SP type']
-        if row['Note'] == 'Note=Pilin':
-            df_regions.loc[idx, 'SP type'] ='pilin_' + df_regions.loc[idx, 'SP type']
-    df_regions = df_regions.drop('Note',axis=1)
+        if row["Note"] == "Note=TAT":
+            df_regions.loc[idx, "SP type"] = "tat_" + df_regions.loc[idx, "SP type"]
+        if row["Note"] == "Note=Pilin":
+            df_regions.loc[idx, "SP type"] = "pilin_" + df_regions.loc[idx, "SP type"]
+    df_regions = df_regions.drop("Note", axis=1)
 
     return df_regions
 
@@ -99,11 +99,11 @@ KYTE_DOOLITTE = {
     "N": -3.5,
     "K": -3.9,
     "R": -4.5,
-    "U": 2.5, #selenocysteine, assume same as C
-    "X": 0, #any 
-    "B": -3.5, # D or N
-    "Z": -3.5, #Q or E
-    "O": -3.9, # Pyrollysine, don't really know, assume same as Lysine
+    "U": 2.5,  # selenocysteine, assume same as C
+    "X": 0,  # any
+    "B": -3.5,  # D or N
+    "Z": -3.5,  # Q or E
+    "O": -3.9,  # Pyrollysine, don't really know, assume same as Lysine
 }
 aas = {
     "A": 0,
@@ -156,23 +156,23 @@ def compute_region_features(df: pd.DataFrame) -> pd.DataFrame:
     df_results = df[["ID", "SP type"]].copy()
 
     # simple region length features
-    # always check whether a region is really there. Otherwise 
+    # always check whether a region is really there. Otherwise
     # fails on lipo/no-sp/pilin-only dataframes.
-    if ('Start', 'n-region') in df.columns and ('End', 'n-region') in df.columns:
+    if ("Start", "n-region") in df.columns and ("End", "n-region") in df.columns:
         df_results.loc[:, "len_n"] = df["End", "n-region"] - df["Start", "n-region"]
     else:
         df_results.loc[:, "len_n"] = np.nan
-        
-    if ('Start', 'h-region') in df.columns and ('End', 'h-region') in df.columns:
+
+    if ("Start", "h-region") in df.columns and ("End", "h-region") in df.columns:
         df_results.loc[:, "len_h"] = df["End", "h-region"] - df["Start", "h-region"]
     else:
         df_results.loc[:, "len_h"] = np.nan
-        
-    if ('Start', 'c-region') in df.columns and ('End', 'c-region') in df.columns:
+
+    if ("Start", "c-region") in df.columns and ("End", "c-region") in df.columns:
         df_results.loc[:, "len_c"] = df["End", "c-region"] - df["Start", "c-region"]
     else:
         df_results.loc[:, "len_c"] = np.nan
-    
+
     df_results.loc[:, "len_sp"] = df["End"]
 
     df_results.loc[:, "rel_len_n"] = df_results["len_n"] / df_results["len_sp"]
@@ -189,7 +189,12 @@ def compute_region_features(df: pd.DataFrame) -> pd.DataFrame:
         # we do this in arrays, so we can use bincount for frequencies
         sequence = np.array([aas[x] for x in row["Sequence"]])
         # NOTE we need to -1 the start idx (are in +1 format). For the end, need to keep the +1
-        if row['SP type'] in ['signal_peptide', 'lipoprotein_signal_peptide', 'tat_signal_peptide', 'tat_lipoprotein_signal_peptide']:
+        if row["SP type"] in [
+            "signal_peptide",
+            "lipoprotein_signal_peptide",
+            "tat_signal_peptide",
+            "tat_lipoprotein_signal_peptide",
+        ]:
             n_seq = sequence[
                 int(row["Start", "n-region"]) - 1 : int(row["End", "n-region"])
             ]
@@ -199,14 +204,16 @@ def compute_region_features(df: pd.DataFrame) -> pd.DataFrame:
         else:
             n_seq = []
             h_seq = []
-        
-        if row['SP type'] in ['lipoprotein_signal_peptide', 'tat_lipoprotein_signal_peptide']:
+
+        if row["SP type"] in [
+            "lipoprotein_signal_peptide",
+            "tat_lipoprotein_signal_peptide",
+        ]:
             c_seq = []
         else:
             c_seq = sequence[
                 int(row["Start", "c-region"]) - 1 : int(row["End", "c-region"])
             ]
-
 
         # count the AAs
         minlength = len(aas)
@@ -227,8 +234,14 @@ def compute_region_features(df: pd.DataFrame) -> pd.DataFrame:
         df_results.loc[idx, "chr_sp"] = compute_net_charge(aas_all)
 
     # mask out based on global label.
-    df_results.loc[df_results['SP type']=='lipoprotein_signal_peptide', ['len_c', 'rel_len_c', 'hyd_c', 'chr_c']] = np.nan
-    df_results.loc[df_results['SP type']=='tat_lipoprotein_signal_peptide', ['len_c', 'rel_len_c', 'hyd_c', 'chr_c']] = np.nan
+    df_results.loc[
+        df_results["SP type"] == "lipoprotein_signal_peptide",
+        ["len_c", "rel_len_c", "hyd_c", "chr_c"],
+    ] = np.nan
+    df_results.loc[
+        df_results["SP type"] == "tat_lipoprotein_signal_peptide",
+        ["len_c", "rel_len_c", "hyd_c", "chr_c"],
+    ] = np.nan
 
     return df_results
 

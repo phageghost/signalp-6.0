@@ -262,9 +262,9 @@ def main():
 
         ax = axes[0]  # plt.subplot(4,2,1)
         df_plot = df.loc[df["Kingdom"] == "EUKARYA"]
-        df_plot.loc[
-            df_plot["Pred label"] != 0, "Pred label"
-        ] = 1  # fix SPII, TAT to SPI
+        df_plot.loc[df_plot["Pred label"] != 0, "Pred label"] = (
+            1  # fix SPII, TAT to SPI
+        )
 
         make_conf_matrix(
             df_plot["True label"].astype(int),
@@ -362,9 +362,9 @@ def main():
 
         ax = axes[0]  # plt.subplot(4,2,1)
         df_plot = df.loc[df["Kingdom"] == "EUKARYA"]
-        df_plot.loc[
-            df_plot["Pred label"] != 0, "Pred label"
-        ] = 1  # fix SPII, TAT to SPI
+        df_plot.loc[df_plot["Pred label"] != 0, "Pred label"] = (
+            1  # fix SPII, TAT to SPI
+        )
 
         make_conf_matrix(
             df_plot["True label"].astype(int),

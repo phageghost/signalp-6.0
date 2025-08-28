@@ -25,15 +25,18 @@ else:
 
 logger.info(f"Using device: {device}")
 
+
 def test_fixed_training():
     """Test if the training now works with the corrected learning rate."""
-    
+
     logger.info("Testing training with corrected learning rate (0.001)...")
-    
+
     try:
         # Load tokenizer and dataset
-        tokenizer = ProteinBertTokenizer.from_pretrained("Rostlab/prot_bert", do_lower_case=False)
-        
+        tokenizer = ProteinBertTokenizer.from_pretrained(
+            "Rostlab/prot_bert", do_lower_case=False
+        )
+
         train_data = RegionCRFDataset(
             "data/train_set.fasta",
             sample_weights_path=None,
@@ -46,14 +49,14 @@ def test_fixed_training():
             make_cs_state=False,
             add_global_label=False,
         )
-        
+
         train_loader = DataLoader(
             train_data,
             batch_size=20,
             collate_fn=train_data.collate_fn,
             shuffle=True,
         )
-        
+
         # Create model
         config = BertConfig.from_pretrained("Rostlab/prot_bert")
         config.num_labels = 37
@@ -62,34 +65,48 @@ def test_fixed_training():
         config.use_region_labels = True
         config.use_kingdom_id = True
         config.kingdom_embed_size = 32
-        
+
         model = BertSequenceTaggingCRF(config)
         model.to(device)
         model.train()
-        
+
         # Create optimizer with the CORRECTED learning rate
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1.2e-6)
-        
+
         logger.info("Model and optimizer created with lr=0.001")
-        
+
         # Test with first batch
         batch = next(iter(train_loader))
-        
+
         if len(batch) == 7:
-            data, targets, input_mask, global_targets, cleavage_sites, sample_weights, kingdom_ids = batch
+            (
+                data,
+                targets,
+                input_mask,
+                global_targets,
+                cleavage_sites,
+                sample_weights,
+                kingdom_ids,
+            ) = batch
         else:
-            data, targets, input_mask, global_targets, sample_weights, kingdom_ids = batch
-        
+            data, targets, input_mask, global_targets, sample_weights, kingdom_ids = (
+                batch
+            )
+
         # Move to device
         data = data.to(device, dtype=torch.long)
         targets = targets.to(device, dtype=torch.long)
         input_mask = input_mask.to(device, dtype=torch.bool)
         global_targets = global_targets.to(device, dtype=torch.long)
-        sample_weights = sample_weights.to(device, dtype=torch.float32) if sample_weights is not None else None
+        sample_weights = (
+            sample_weights.to(device, dtype=torch.float32)
+            if sample_weights is not None
+            else None
+        )
         kingdom_ids = kingdom_ids.to(device, dtype=torch.long)
-        
+
         logger.info("Data moved to device")
-        
+
         # Test multiple training steps
         logger.info("Testing multiple training steps...")
         for step in range(10):  # Test 10 steps
@@ -103,15 +120,15 @@ def test_fixed_training():
                 sample_weights=sample_weights,
                 kingdom_ids=kingdom_ids,
             )
-            
+
             if torch.isnan(loss).any():
                 logger.error(f"❌ Loss became NaN at step {step}!")
                 return False
-            
+
             # Backward pass
             optimizer.zero_grad()
             loss.backward()
-            
+
             # Check gradients
             nan_grads = 0
             inf_grads = 0
@@ -125,10 +142,10 @@ def test_fixed_training():
                         inf_grads += 1
                         logger.error(f"❌ Inf gradients at step {step} in {name}!")
                         return False
-            
+
             # Optimizer step
             optimizer.step()
-            
+
             # Check parameters
             nan_params = 0
             inf_params = 0
@@ -141,22 +158,26 @@ def test_fixed_training():
                     inf_params += 1
                     logger.error(f"❌ Inf parameters at step {step} in {name}!")
                     return False
-            
+
             logger.info(f"Step {step} completed successfully, loss: {loss.item():.6f}")
-        
+
         logger.info("✅ All training steps completed successfully!")
         return True
-        
+
     except Exception as e:
         logger.error(f"❌ Fixed training test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = test_fixed_training()
     if success:
         logger.info("🎉 Fixed training test PASSED! The NaN issue is resolved.")
-        logger.info("You can now run your training script with the corrected learning rate.")
+        logger.info(
+            "You can now run your training script with the corrected learning rate."
+        )
     else:
         logger.error("💥 Fixed training test FAILED! The issue persists.")

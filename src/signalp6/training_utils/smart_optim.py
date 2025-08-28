@@ -104,7 +104,7 @@ class Adamax(Optimizer):
         return lr
 
     def to(self, device):
-        """ Move the optimizer state to a specified device"""
+        """Move the optimizer state to a specified device"""
         for state in self.state.values():
             state["exp_avg"].to(device)
             state["exp_inf"].to(device)
@@ -246,7 +246,7 @@ class RAdam(Optimizer):
         return lr
 
     def to(self, device):
-        """ Move the optimizer state to a specified device"""
+        """Move the optimizer state to a specified device"""
         for state in self.state.values():
             state["exp_avg"].to(device)
             state["exp_avg_sq"].to(device)

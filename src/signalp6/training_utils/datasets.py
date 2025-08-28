@@ -108,7 +108,7 @@ class SP_label_tokenizer:
         return [x for x in text]
 
     def convert_token_to_id(self, token: str) -> int:
-        """ Converts a token (str/unicode) in an id using the vocab. """
+        """Converts a token (str/unicode) in an id using the vocab."""
         try:
             return self.vocab[token]
         except KeyError:
@@ -125,7 +125,8 @@ class SP_label_tokenizer:
 
 class AbstractThreeLineFastaDataset(Dataset):
     """Abstract Dataset to load a three-line fasta file.
-    Need to implement __getitem__ in child classes, to preprocess sequences as needed."""
+    Need to implement __getitem__ in child classes, to preprocess sequences as needed.
+    """
 
     def __init__(
         self,
@@ -789,6 +790,7 @@ EXTENDED_LABELS_SIGNALP_5 = {
     "CS_SPII": 10,
     "CS_SPIII": 11,
 }
+
 
 # NOTE cannot share T token here between TATLIPO and TAT as I do in SignalP6.
 # Otherwise mean probability looks the same for TAT and TATLIPO.

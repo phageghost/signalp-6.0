@@ -109,16 +109,16 @@ class CRF(nn.Module):
 
         if self.transition_constraint:
             self.do_transition_constraint()
-            
+
     def to(self, device):
         """Override to ensure constraint masks are moved to the correct device."""
         super().to(device)
         # Move constraint masks to the same device
-        if hasattr(self, '_constraint_mask'):
+        if hasattr(self, "_constraint_mask"):
             self._constraint_mask = self._constraint_mask.to(device)
-        if hasattr(self, '_constraint_start_mask'):
+        if hasattr(self, "_constraint_start_mask"):
             self._constraint_start_mask = self._constraint_start_mask.to(device)
-        if hasattr(self, '_constraint_end_mask'):
+        if hasattr(self, "_constraint_end_mask"):
             self._constraint_end_mask = self._constraint_end_mask.to(device)
         return self
 
@@ -696,14 +696,14 @@ class CRF(nn.Module):
             0
         ]  # NO_SP token, provide as argument.
 
-        init_steps_mask[
-            dont_mask_idx
-        ] = 1  # (batch_size, num_tags) mask that is 0 at all emissions that should be set to 0
+        init_steps_mask[dont_mask_idx] = (
+            1  # (batch_size, num_tags) mask that is 0 at all emissions that should be set to 0
+        )
 
         # it seems that 0 masking is not working - try making wanted emissions large instead of zeroing unwanted
-        init_steps_mask[
-            dont_mask_idx
-        ] = 0  # init_steps_mask is 1 at all emissions that shall be scaled
+        init_steps_mask[dont_mask_idx] = (
+            0  # init_steps_mask is 1 at all emissions that shall be scaled
+        )
 
         # mask initial score
         score = score + init_steps_mask * 10000

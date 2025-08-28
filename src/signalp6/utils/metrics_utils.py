@@ -241,7 +241,7 @@ def tagged_seq_to_cs_multiclass(tagged_seqs: np.ndarray, sp_tokens=[0, 4, 5]):
     """
 
     def get_last_sp_idx(x: np.ndarray) -> int:
-        """Func1d to get the last index that is tagged as SP. use with np.apply_along_axis. """
+        """Func1d to get the last index that is tagged as SP. use with np.apply_along_axis."""
         sp_idx = np.where(np.isin(x, sp_tokens))[0]
         if len(sp_idx) > 0:
             max_idx = sp_idx.max() + 1
@@ -264,7 +264,7 @@ def find_cs_tag(tagged_seqs: np.ndarray, cs_tokens=[4, 9, 14]):
     """
 
     def get_last_sp_idx(x: np.ndarray) -> int:
-        """Func1d to get the last index that is tagged as SP. use with np.apply_along_axis. """
+        """Func1d to get the last index that is tagged as SP. use with np.apply_along_axis."""
         sp_idx = np.where(np.isin(x, cs_tokens))[0]
         if len(sp_idx) > 0:
             max_idx = sp_idx.max() + 1
@@ -439,15 +439,15 @@ def compute_metrics_old(
             # make same label for all that are not target type
             targets_mcc2[targets_mcc2 != sp_type] = 0
             preds_mcc2[preds_mcc2 != sp_type] = 0
-            metrics_dict[
-                f"{kingdom}_{rev_label_dict[sp_type]}_mcc2"
-            ] = matthews_corrcoef(targets_mcc2, preds_mcc2)
+            metrics_dict[f"{kingdom}_{rev_label_dict[sp_type]}_mcc2"] = (
+                matthews_corrcoef(targets_mcc2, preds_mcc2)
+            )
             # one-vs-no_sp mcc
             targets_mcc1 = kingdom_targets[np.isin(kingdom_targets, [sp_type, 0])]
             preds_mcc1 = kingdom_preds[np.isin(kingdom_targets, [sp_type, 0])]
-            metrics_dict[
-                f"{kingdom}_{rev_label_dict[sp_type]}_mcc1"
-            ] = matthews_corrcoef(targets_mcc1, preds_mcc1)
+            metrics_dict[f"{kingdom}_{rev_label_dict[sp_type]}_mcc1"] = (
+                matthews_corrcoef(targets_mcc1, preds_mcc1)
+            )
 
             # subset current type + type 0 (no sp)
             true_CS, pred_CS = (

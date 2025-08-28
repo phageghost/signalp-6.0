@@ -125,9 +125,11 @@ class BertSequenceTaggingCRF(BertPreTrainedModel):
 
         ## Hidden states to CRF emissions
         self.outputs_to_emissions = nn.Linear(
-            config.hidden_size
-            if self.use_kingdom_id is False
-            else config.hidden_size + config.kingdom_embed_size,
+            (
+                config.hidden_size
+                if self.use_kingdom_id is False
+                else config.hidden_size + config.kingdom_embed_size
+            ),
             config.num_labels,
         )
 
@@ -149,7 +151,7 @@ class BertSequenceTaggingCRF(BertPreTrainedModel):
 
         # Note: CRF constraints removed as they are not part of the intended architecture
         # The model learns valid transitions naturally from the training data
-        
+
         self.crf = CRF(
             num_tags=config.num_labels,
             batch_first=True,
@@ -452,7 +454,8 @@ class BertSequenceTaggingCRF(BertPreTrainedModel):
 
     def predict_global_labels(self, probs, kingdom_ids, weights=None):
         """Given probs from compute_global_labels, get prediction.
-        Takes care of summing over SPII and TAT for eukarya, and allows reweighting of probabilities."""
+        Takes care of summing over SPII and TAT for eukarya, and allows reweighting of probabilities.
+        """
 
         if self.use_kingdom_id:
             eukarya_idx = torch.where(kingdom_ids == 0)[0]
