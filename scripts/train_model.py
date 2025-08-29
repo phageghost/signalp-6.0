@@ -1409,7 +1409,7 @@ def main_training_loop(args: argparse.ArgumentParser):
             # Check model parameters at start of each epoch
             check_model_parameters(model, logger, f"epoch {epoch}")
 
-        epoch_loss, global_step = train(
+        epoch_train_loss, global_step = train(
             model, train_loader, optimizer, args, global_step, logger
         )
 
