@@ -403,7 +403,7 @@ def check_model_parameters(model: torch.nn.Module, stage: str = "training"):
         return True
 
 
-def train(
+def train_epoch(
     model: torch.nn.Module,
     train_data: DataLoader,
     optimizer: torch.optim.Optimizer,
@@ -874,7 +874,7 @@ def train(
     return total_loss / len(train_data), global_step
 
 
-def validate(model: torch.nn.Module, val_loader: DataLoader, args) -> float:
+def validate_epoch(model: torch.nn.Module, val_loader: DataLoader, args) -> float:
     """Run over the validation data. Average loss over the full set."""
     model.eval()
 
@@ -992,7 +992,7 @@ def validate(model: torch.nn.Module, val_loader: DataLoader, args) -> float:
     return (total_loss / len(val_loader)), val_metrics
 
 
-def main_training_loop(args: argparse.ArgumentParser):
+def train_model(args: argparse.ArgumentParser):
     time_stamp = time.strftime("%y-%m-%d-%H-%M-%S", time.gmtime())
     experiment_name = f"{args.experiment_name}_{args.test_partition}_{args.validation_partition}_{time_stamp}"
 
@@ -1383,7 +1383,7 @@ def main_training_loop(args: argparse.ArgumentParser):
         if args.check_nans_and_infs:
             check_model_parameters(model, f"epoch {epoch}")
 
-        epoch_train_loss, global_step = train(
+        epoch_train_loss, global_step = train_epoch(
             model,
             train_loader,
             optimizer,
@@ -1395,7 +1395,7 @@ def main_training_loop(args: argparse.ArgumentParser):
             f"Step {global_step}, Epoch {epoch}: validating for {len(val_loader)} Validation steps"
         )
         logger.debug(f"Epoch {epoch}: Starting validation on {len(val_loader)} batches")
-        val_loss, val_metrics = validate(model=model, val_loader=val_loader, args=args)
+        val_loss, val_metrics = validate_epoch(model=model, val_loader=val_loader, args=args)
         log_metrics(val_metrics, "val", global_step)
         logger.info(
             f"Validation: MCC global {val_metrics['Detection MCC']}, MCC seq {val_metrics['CS MCC']}. Epochs without improvement: {num_epochs_no_improvement}. lr step {learning_rate_steps}"
@@ -1724,7 +1724,7 @@ def main():
         verbosity=logging.DEBUG if args.verbose else logging.INFO,
     )
 
-    main_training_loop(args)
+    train_model(args)
 
 
 if __name__ == "__main__":
