@@ -54,7 +54,7 @@ MODEL_DICT = {
 TOKENIZER_DICT = {"bert_prottrans": (ProteinBertTokenizer, "Rostlab/prot_bert")}
 
 
-logger = logging.Logger('placeholder')
+# logger = logging.Logger('placeholder')
 # Fix OpenMP conflict on macOS
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -99,12 +99,13 @@ def setup_logger(log_fpath: str, verbosity: int = logging.INFO) -> logging.Logge
     ch.setLevel(verbosity)
 
     # create file handler
-    fh = logging.FileHandler(log_fpath, mode='w')
+    fh = logging.FileHandler(log_fpath, mode="w")
     fh.setLevel(verbosity)
 
     # create formatter and add it to the handlers
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     ch.setFormatter(formatter)
     fh.setFormatter(formatter)
 
@@ -112,9 +113,8 @@ def setup_logger(log_fpath: str, verbosity: int = logging.INFO) -> logging.Logge
     logger.addHandler(ch)
     logger.addHandler(fh)
 
-    logger.info('Logger set up at level %s and writing to %s.', 
-        verbosity, log_fpath)
-    
+    logger.info("Logger set up at level %s and writing to %s.", verbosity, log_fpath)
+
     return logger
 
 
@@ -350,9 +350,7 @@ def report_metrics_kingdom_averaged(
     return metrics_dict
 
 
-def check_model_parameters(
-    model: torch.nn.Module, stage: str = "training"
-):
+def check_model_parameters(model: torch.nn.Module, stage: str = "training"):
     """Check if the model parameters contain NaN or Inf values."""
     logger.info(f"Checking model parameters for NaN/Inf values at {stage} start...")
 
@@ -492,9 +490,7 @@ def train(
 
         # Log input statistics
         logger.debug(f"Batch {i}: Input data range: [{data.min()}, {data.max()}]")
-        logger.debug(
-            f"Batch {i}: Targets range: [{targets.min()}, {targets.max()}]"
-        )
+        logger.debug(f"Batch {i}: Targets range: [{targets.min()}, {targets.max()}]")
         logger.debug(
             f"Batch {i}: Global targets range: [{global_targets.min()}, {global_targets.max()}]"
         )
@@ -544,7 +540,7 @@ def train(
         logger.debug(
             f"Batch {i}: Raw loss shape: {loss.shape}, "
             f"Loss value: {loss.item():.6f}"
-            )
+        )
         logger.debug(
             f"Batch {i}: Global probs shape: {global_probs.shape}, "
             f"Position probs shape: {pos_probs.shape}"
@@ -682,9 +678,7 @@ def train(
             logger.debug(
                 f"Batch {i}: Regularization alpha: {args.region_regularization_alpha}"
             )
-            logger.debug(
-                f"Batch {i}: Loss before regularization: {loss.item():.6f}"
-            )
+            logger.debug(f"Batch {i}: Loss before regularization: {loss.item():.6f}")
 
             loss = loss + nh.mean() * args.region_regularization_alpha
             loss = loss + hc.mean() * args.region_regularization_alpha
@@ -763,9 +757,7 @@ def train(
                 args.clip, 0.1
             )  # Use smaller clipping norm if gradients are large
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_norm)
-            logger.debug(
-                f"Batch {i}: Applied gradient clipping with norm {clip_norm}"
-            )
+            logger.debug(f"Batch {i}: Applied gradient clipping with norm {clip_norm}")
 
             # Check if gradients are still too large after clipping
             total_norm_after = 0
@@ -884,9 +876,7 @@ def train(
     return total_loss / len(train_data), global_step
 
 
-def validate(
-    model: torch.nn.Module, val_loader: DataLoader, args
-) -> float:
+def validate(model: torch.nn.Module, val_loader: DataLoader, args) -> float:
     """Run over the validation data. Average loss over the full set."""
     model.eval()
 
@@ -1325,7 +1315,7 @@ def main_training_loop(args: argparse.ArgumentParser):
 
     if args.optimizer == "smart_adamax":
         logger.debug(f"Smart Adamax warmup: 0.1, t_total: {t_total}")
-        
+
     model.to(device)
     logger.info("Model set up!")
     num_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -1333,8 +1323,7 @@ def main_training_loop(args: argparse.ArgumentParser):
 
     # Check model parameters for NaN/Inf before starting training
     if args.check_nans_and_infs:
-        check_model_parameters(model=model,
-                               stage="training")
+        check_model_parameters(model=model, stage="training")
 
     # Additional model diagnostics
     logger.info(f"Model type: {type(model).__name__}")
@@ -1342,13 +1331,9 @@ def main_training_loop(args: argparse.ArgumentParser):
         f"Model base model prefix: {getattr(model, 'base_model_prefix', 'N/A')}"
     )
     logger.info(f"Model config: {type(model.config).__name__}")
-    logger.info(
-        f"Model has kingdom embedding: {hasattr(model, 'kingdom_embedding')}"
-    )
+    logger.info(f"Model has kingdom embedding: {hasattr(model, 'kingdom_embedding')}")
     if hasattr(model, "kingdom_embedding"):
-        logger.info(
-            f"Kingdom embedding shape: {model.kingdom_embedding.weight.shape}"
-        )
+        logger.info(f"Kingdom embedding shape: {model.kingdom_embedding.weight.shape}")
         logger.info(
             f"Kingdom embedding device: {model.kingdom_embedding.weight.device}"
         )
@@ -1363,12 +1348,8 @@ def main_training_loop(args: argparse.ArgumentParser):
 
     # Log model configuration details
     logger.info(f"Model config - hidden size: {model.config.hidden_size}")
-    logger.info(
-        f"Model config - num hidden layers: {model.config.num_hidden_layers}"
-    )
-    logger.info(
-        f"Model config - intermediate size: {model.config.intermediate_size}"
-    )
+    logger.info(f"Model config - num hidden layers: {model.config.num_hidden_layers}")
+    logger.info(f"Model config - intermediate size: {model.config.intermediate_size}")
     logger.info(
         f"Model config - num attention heads: {model.config.num_attention_heads}"
     )
@@ -1405,18 +1386,18 @@ def main_training_loop(args: argparse.ArgumentParser):
             check_model_parameters(model, f"epoch {epoch}")
 
         epoch_train_loss, global_step = train(
-            model, train_loader, optimizer, args, global_step,
+            model,
+            train_loader,
+            optimizer,
+            args,
+            global_step,
         )
 
         logger.info(
             f"Step {global_step}, Epoch {epoch}: validating for {len(val_loader)} Validation steps"
         )
-        logger.debug(
-            f"Epoch {epoch}: Starting validation on {len(val_loader)} batches"
-        )
-        val_loss, val_metrics = validate(model=model,
-                                         val_loader=val_loader,
-                                         args=args)
+        logger.debug(f"Epoch {epoch}: Starting validation on {len(val_loader)} batches")
+        val_loss, val_metrics = validate(model=model, val_loader=val_loader, args=args)
         log_metrics(val_metrics, "val", global_step)
         logger.info(
             f"Validation: MCC global {val_metrics['Detection MCC']}, MCC seq {val_metrics['CS MCC']}. Epochs without improvement: {num_epochs_no_improvement}. lr step {learning_rate_steps}"
@@ -1444,12 +1425,8 @@ def main_training_loop(args: argparse.ArgumentParser):
                 f'New best model with loss {val_loss},MCC Sum {mcc_sum} MCC global {val_metrics["Detection MCC"]}, MCC seq {val_metrics["CS MCC"]}, Saving model, training step {global_step}'
             )
 
-            logger.info(
-                f"Epoch {epoch}: Saved new best model to {args.output_dir}"
-            )
-            logger.info(
-                f"Epoch {epoch}: Previous best MCC sum: {best_mcc_sum:.6f}"
-            )
+            logger.info(f"Epoch {epoch}: Saved new best model to {args.output_dir}")
+            logger.info(f"Epoch {epoch}: Previous best MCC sum: {best_mcc_sum:.6f}")
             logger.info(f"Epoch {epoch}: New best MCC sum: {mcc_sum:.6f}")
 
         else:
@@ -1476,7 +1453,6 @@ def main_training_loop(args: argparse.ArgumentParser):
         "val",
         global_step,
     )
-
 
     # reload best checkpoint
     model = MODEL_DICT[args.model_architecture][1].from_pretrained(args.output_dir)
@@ -1521,6 +1497,7 @@ def main_training_loop(args: argparse.ArgumentParser):
 
     run_completed = True
     return best_mcc_global, best_mcc_cs, run_completed  # best_mcc_sum
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train Bert-CRF model")
@@ -1744,11 +1721,13 @@ def main():
     args.output_dir = os.path.join(args.output_dir, full_name)
     os.makedirs(args.output_dir, exist_ok=True)
     global logger
-    logger = setup_logger(Path(args.output_dir).joinpath("log.txt"), 
-                          verbosity=logging.DEBUG if args.verbose else logging.INFO)
+    logger = setup_logger(
+        Path(args.output_dir).joinpath("log.txt"),
+        verbosity=logging.DEBUG if args.verbose else logging.INFO,
+    )
 
     main_training_loop(args)
 
 
 if __name__ == "__main__":
-   sys.exit(main())
+    sys.exit(main())
