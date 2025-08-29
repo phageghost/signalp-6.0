@@ -1337,43 +1337,43 @@ def main_training_loop(args: argparse.ArgumentParser):
                                stage="training")
 
     # Additional model diagnostics
-    logger.debug(f"Model type: {type(model).__name__}")
-    logger.debug(
+    logger.info(f"Model type: {type(model).__name__}")
+    logger.info(
         f"Model base model prefix: {getattr(model, 'base_model_prefix', 'N/A')}"
     )
-    logger.debug(f"Model config: {type(model.config).__name__}")
-    logger.debug(
+    logger.info(f"Model config: {type(model.config).__name__}")
+    logger.info(
         f"Model has kingdom embedding: {hasattr(model, 'kingdom_embedding')}"
     )
     if hasattr(model, "kingdom_embedding"):
-        logger.debug(
+        logger.info(
             f"Kingdom embedding shape: {model.kingdom_embedding.weight.shape}"
         )
-        logger.debug(
+        logger.info(
             f"Kingdom embedding device: {model.kingdom_embedding.weight.device}"
         )
 
-    logger.debug(f"Model device: {device}")
-    logger.debug(f"Model architecture: {args.model_architecture}")
-    logger.debug(f"Number of sequence labels: {args.num_seq_labels}")
-    logger.debug(f"Number of global labels: {args.num_global_labels}")
-    logger.debug(f"Learning rate: {args.lr}")
-    logger.debug(f"Batch size: {args.batch_size}")
-    logger.debug(f"Gradient clipping: {args.clip}")
+    logger.info(f"Model device: {device}")
+    logger.info(f"Model architecture: {args.model_architecture}")
+    logger.info(f"Number of sequence labels: {args.num_seq_labels}")
+    logger.info(f"Number of global labels: {args.num_global_labels}")
+    logger.info(f"Learning rate: {args.lr}")
+    logger.info(f"Batch size: {args.batch_size}")
+    logger.info(f"Gradient clipping: {args.clip}")
 
     # Log model configuration details
-    logger.debug(f"Model config - hidden size: {model.config.hidden_size}")
-    logger.debug(
+    logger.info(f"Model config - hidden size: {model.config.hidden_size}")
+    logger.info(
         f"Model config - num hidden layers: {model.config.num_hidden_layers}"
     )
-    logger.debug(
+    logger.info(
         f"Model config - intermediate size: {model.config.intermediate_size}"
     )
-    logger.debug(
+    logger.info(
         f"Model config - num attention heads: {model.config.num_attention_heads}"
     )
-    logger.debug(f"Model config - dropout: {model.config.hidden_dropout_prob}")
-    logger.debug(
+    logger.info(f"Model config - dropout: {model.config.hidden_dropout_prob}")
+    logger.info(
         f"Model config - attention dropout: {model.config.attention_probs_dropout_prob}"
     )
 
