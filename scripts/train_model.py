@@ -12,41 +12,14 @@ Uses wandb for logging. There's a dirty fix in place to prevent wandb from loggi
 initialized already. This is necessary when spawning multiple train loops from the same script, because
 wandb reinit is still bugged.
 """
-# Felix August 2020
-import os
-
-# Fix OpenMP conflict on macOS
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
 import argparse
-import time
-import numpy as np
-import torch
-
-# Set default tensor type to float32 for Metal compatibility
-torch.set_default_dtype(torch.float32)
-
 import logging
+import os
 import subprocess
+import time
 from typing import Tuple, Dict
-from signalp6.models import ProteinBertTokenizer, BertSequenceTaggingCRF
-from transformers import BertConfig
-from signalp6.training_utils import (
-    LargeCRFPartitionDataset,
-    SIGNALP_KINGDOM_DICT,
-    RegionCRFDataset,
-    compute_cosine_region_regularization,
-    Adamax,
-)
-from torch.utils.data import DataLoader, WeightedRandomSampler
 
-from signalp6.utils import get_metrics_multistate
-from signalp6.utils import class_aware_cosine_similarities, get_region_lengths
-
-
-# import data
-import wandb
-
+import numpy as np
 from sklearn.metrics import (
     matthews_corrcoef,
     average_precision_score,
@@ -54,6 +27,34 @@ from sklearn.metrics import (
     recall_score,
     precision_score,
 )
+import torch
+from transformers import BertConfig
+from torch.utils.data import DataLoader, WeightedRandomSampler
+import wandb
+
+from signalp6.models import ProteinBertTokenizer, BertSequenceTaggingCRF
+from signalp6.utils import get_metrics_multistate
+from signalp6.utils import class_aware_cosine_similarities, get_region_lengths
+from signalp6.training_utils import (
+    LargeCRFPartitionDataset,
+    SIGNALP_KINGDOM_DICT,
+    RegionCRFDataset,
+    compute_cosine_region_regularization,
+    Adamax,
+)
+
+
+# get the git hash - and log it
+# wandb does that automatically - but only when in the correct directory when launching the job.
+# by also doing it manually, force to launch from the correct directory, because otherwise this command will fail.
+GIT_HASH = (
+    subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).strip().decode()
+)
+MODEL_DICT = {
+    "bert_prottrans": (BertConfig, BertSequenceTaggingCRF),
+}
+TOKENIZER_DICT = {"bert_prottrans": (ProteinBertTokenizer, "Rostlab/prot_bert")}
+
 
 
 def log_metrics(metrics_dict, split: str, step: int):
@@ -65,6 +66,35 @@ def log_metrics(metrics_dict, split: str, step: int):
         },
         step=step,
     )
+
+
+def setup_logger(verbose=False):
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+    c_handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+        datefmt="%y/%m/%d %H:%M:%S",
+    )
+    c_handler.setFormatter(formatter)
+    logger.addHandler(c_handler)
+    return logger
+
+
+# Fix OpenMP conflict on macOS
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+# Set default tensor type to float32 for Metal compatibility
+torch.set_default_dtype(torch.float32)
+
+
+# Use Metal Performance Shaders (MPS) on Apple Silicon, CUDA on NVIDIA, or CPU as fallback
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
 
 
 # This is a quick fix for hyperparameter search.
@@ -95,42 +125,6 @@ class DecoyWandb:
 
     def watch(self, *args, **kwargs):
         pass
-
-
-# get the git hash - and log it
-# wandb does that automatically - but only when in the correct directory when launching the job.
-# by also doing it manually, force to launch from the correct directory, because otherwise this command will fail.
-GIT_HASH = (
-    subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).strip().decode()
-)
-
-
-MODEL_DICT = {
-    "bert_prottrans": (BertConfig, BertSequenceTaggingCRF),
-}
-TOKENIZER_DICT = {"bert_prottrans": (ProteinBertTokenizer, "Rostlab/prot_bert")}
-
-
-def setup_logger(verbose=False):
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG if verbose else logging.INFO)
-    c_handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-        datefmt="%y/%m/%d %H:%M:%S",
-    )
-    c_handler.setFormatter(formatter)
-    logger.addHandler(c_handler)
-    return logger
-
-
-# Use Metal Performance Shaders (MPS) on Apple Silicon, CUDA on NVIDIA, or CPU as fallback
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-elif torch.backends.mps.is_available():
-    device = torch.device("mps")
-else:
-    device = torch.device("cpu")
 
 
 def tagged_seq_to_cs_multiclass(tagged_seqs: np.ndarray, sp_tokens=[0, 4, 5]):
