@@ -885,7 +885,7 @@ def train(
 
 
 def validate(
-    model: torch.nn.Module, valid_data: DataLoader, args
+    model: torch.nn.Module, val_loader: DataLoader, args
 ) -> float:
     """Run over the validation data. Average loss over the full set."""
     model.eval()
@@ -899,7 +899,7 @@ def validate(
     all_cs = []
 
     total_loss = 0
-    for i, batch in enumerate(valid_data):
+    for i, batch in enumerate(val_loader):
         if args.sp_region_labels:
             (
                 data,
@@ -971,9 +971,9 @@ def validate(
         all_cs = None
 
     logger.debug(
-        f"Validation summary: Processed {len(valid_data)} batches, "
+        f"Validation summary: Processed {len(val_loader)} batches, "
         f"Total loss: {total_loss:.6f}, "
-        f"Average loss per batch: {total_loss/len(valid_data):.6f}"
+        f"Average loss per batch: {total_loss/len(val_loader):.6f}"
     )
     logger.debug(
         f"Validation summary: Targets shape: {all_targets.shape}, "
@@ -1000,8 +1000,8 @@ def validate(
             args.use_cs_tag,
         )
 
-    val_metrics = {"loss": total_loss / len(valid_data), **metrics}
-    return (total_loss / len(valid_data)), val_metrics
+    val_metrics = {"loss": total_loss / len(val_loader), **metrics}
+    return (total_loss / len(val_loader)), val_metrics
 
 
 def main_training_loop(args: argparse.ArgumentParser):
