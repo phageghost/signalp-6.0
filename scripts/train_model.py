@@ -54,7 +54,6 @@ MODEL_DICT = {
 TOKENIZER_DICT = {"bert_prottrans": (ProteinBertTokenizer, "Rostlab/prot_bert")}
 
 
-# logger = logging.Logger('placeholder')
 # Fix OpenMP conflict on macOS
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -434,8 +433,7 @@ def train(
         logger.debug(f"Batch {i}: Starting forward pass")
 
         # Check model state
-        logger.debug(f"Batch {i}: Model training mode: {model.training}")
-        logger.debug(f"Batch {i}: Model device: {next(model.parameters()).device}")
+
 
         if args.sp_region_labels:
             (
@@ -1368,7 +1366,7 @@ def main_training_loop(args: argparse.ArgumentParser):
             f"High attention dropout rate {model.config.attention_probs_dropout_prob} might cause instability"
         )
 
-    logger.info(f"Running model on {device}, not using nvidia apex")
+    logger.debug(f"Model training mode: {model.training}")
 
     # keep track of best loss
     stored_loss = 100000000
